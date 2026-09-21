@@ -1,8 +1,12 @@
-import type { DashboardData } from '@health/shared'
+import type { DashboardData, DashboardRange } from '@health/shared'
+import { getJson } from './api'
 
-/** Phase 4 will connect this port to protected Functions. It intentionally has no fixture fallback. */
 export interface HealthDataClient {
   getDashboard(range: string): Promise<DashboardData>
+}
+
+export const healthDataClient: HealthDataClient = {
+  getDashboard: (range: DashboardRange) => getJson<DashboardData>(`/.netlify/functions/dashboard-data?range=${range}`),
 }
 
 export const emptyDashboardData: DashboardData = {
@@ -10,4 +14,3 @@ export const emptyDashboardData: DashboardData = {
   lastUpdatedAt: null,
   summaries: [],
 }
-

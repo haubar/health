@@ -4,12 +4,12 @@
 
 ## 目前階段
 
-第五階段「自動同步」已完成實作，等待擁有者確認。
+第六階段「正式資料 Dashboard」已完成實作，等待擁有者確認。
 
 ## 下次接續位置
 
-1. 閱讀 [`phase-05-sync.md`](phase-05-sync.md) 及擁有者對第五階段報告的回覆。
-2. 獲得確認後，再開始第六階段「正式環境」。
+1. 閱讀 [`phase-06-dashboard-api.md`](phase-06-dashboard-api.md) 及擁有者對第六階段報告的回覆。
+2. 獲得確認後，再進行 Netlify 正式環境設定與部署驗證。
 
 ## 重要限制
 
@@ -28,3 +28,4 @@
 - 第三階段最後一次驗證：`npm test` 通過 4 個測試檔、15 項測試；`npm run build` 通過。
 - 第四階段：Functions/shared typecheck 通過；本機 Node.js 18 無法執行要求 Node.js 20.19+ 的 Vite build，需在符合專案 engines 的 Node 版本重跑。
 - 第五階段：Functions/shared typecheck 通過；同步 endpoint 會以登入者身分抓取最近 30 天正式資料並以 record key 去重保存。
+- 第六階段：Dashboard API 會讀取登入者保存的正式 records，依 Asia/Taipei 日期聚合；前端不再使用 fixture，無資料的卡片與圖表保持隱藏。
