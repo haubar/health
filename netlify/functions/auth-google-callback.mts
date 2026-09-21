@@ -76,7 +76,8 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     response.headers.append('Set-Cookie', sessionCookie(token))
     response.headers.append('Set-Cookie', clearOAuthStateCookie())
     return response
-  } catch {
+  } catch (error) {
+    console.error('auth-google-callback failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })
     return failedRedirect('authentication_failed')
   }
 }
