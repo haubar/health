@@ -14,7 +14,10 @@ const protectedRoutes: RouteRecordRaw[] = [
     component: () => import('./pages/SettingsPage.vue'),
     meta: { requiresAuth: true },
   },
-  ...['activity', 'body', 'workouts', 'insights', 'timeline'].map(
+  { path: '/activity', name: 'activity', component: () => import('./pages/ActivityPage.vue'), meta: { requiresAuth: true } },
+  { path: '/body', name: 'body', component: () => import('./pages/BodyPage.vue'), meta: { requiresAuth: true } },
+  { path: '/workouts', name: 'workouts', component: () => import('./pages/WorkoutsPage.vue'), meta: { requiresAuth: true } },
+  ...['insights', 'timeline'].map(
     (section): RouteRecordRaw => ({
       path: `/${section}`,
       name: section,
@@ -45,4 +48,3 @@ router.beforeEach(async (to) => {
     return { name: 'dashboard' }
   }
 })
-

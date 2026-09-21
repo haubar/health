@@ -4,13 +4,13 @@
 
 ## 目前階段
 
-第一階段「基礎架構」已完成，等待擁有者確認。在明確確認前，不開始第二階段。
+第二階段「儀表板」已完成，等待擁有者確認。在明確確認前，不開始第三階段。
 
 ## 下次接續位置
 
-1. 閱讀 [`phase-01-foundation.md`](phase-01-foundation.md) 及擁有者對第一階段報告的回覆。
-2. 獲得確認後，先建立第二階段紀錄，再編輯 Dashboard 程式。
-3. 只實作已確認的第二階段範圍，完成測試、build 與回報後再次停下。
+1. 閱讀 [`phase-02-dashboard.md`](phase-02-dashboard.md) 及擁有者對第二階段報告的回覆。
+2. 獲得確認後，先建立第三階段紀錄，再編輯 analytics 程式。
+3. 只實作已確認的第三階段範圍，完成測試、build 與回報後再次停下。
 
 ## 重要限制
 
@@ -22,6 +22,7 @@
 
 ## 最近驗證結果
 
-- `npm audit --audit-level=high`: 0 vulnerabilities.
-- `npm test`: 3 files, 9 tests passed.
-- `npm run build`: shared, Vue, and Functions typecheck passed; Vite production build passed.
+- `npm audit --audit-level=high`：0 vulnerabilities。
+- `npm test`：3 個測試檔、9 項測試通過。
+- `npm run build`：shared、Vue 與 Functions typecheck 通過；Vite production build 通過。
+- 第二階段最後一次驗證：`npm test` 通過 3 個測試檔、9 項測試；`npm run build` 通過，ECharts 改為動態載入且不再產生大初始 chunk 警告。

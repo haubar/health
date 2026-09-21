@@ -5,7 +5,7 @@
 | 階段 | 狀態 | 紀錄 |
 |---|---|---|
 | 1 — 基礎架構 | 已完成，等待擁有者確認 | [`phase-01-foundation.md`](phase-01-foundation.md) |
-| 2 — 儀表板 | 尚未開始 | — |
+| 2 — 儀表板 | 已完成，等待擁有者確認 | [`phase-02-dashboard.md`](phase-02-dashboard.md) |
 | 3 — 分析 | 尚未開始 | — |
 | 4 — Google Health API | 尚未開始 | — |
 | 5 — 自動化 | 尚未開始 | — |
