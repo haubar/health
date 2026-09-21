@@ -4,12 +4,12 @@
 
 ## 目前階段
 
-第六階段「正式資料 Dashboard」已完成實作，等待擁有者確認。
+第六階段「正式資料 Dashboard」已完成實作，目前進行 Netlify 正式環境驗證。
 
 ## 下次接續位置
 
-1. 閱讀 [`phase-06-dashboard-api.md`](phase-06-dashboard-api.md) 及擁有者對第六階段報告的回覆。
-2. 獲得確認後，再進行 Netlify 正式環境設定與部署驗證。
+1. 部署最新 commit 後，在 Settings 使用「開始同步」匯入首次健康資料。
+2. 驗證同步結果、Dashboard API 與 Google OAuth production redirect URI。
 
 ## 重要限制
 
@@ -22,10 +22,12 @@
 ## 最近驗證結果
 
 - `npm audit --audit-level=high`：0 vulnerabilities。
-- `npm test`：3 個測試檔、9 項測試通過。
-- `npm run build`：shared、Vue 與 Functions typecheck 通過；Vite production build 通過。
+- `npm test`：5 個測試檔、17 項測試通過。
+- `npm run build`：Node.js 22.17.1 下 shared、Vue 與 Functions typecheck 通過；Vite production build 通過。
+- `git diff --check`：通過。
+- 最新功能：Settings 僅在最近一年沒有資料時顯示「開始同步」，同步完成後顯示筆數或錯誤。
 - 第二階段最後一次驗證：`npm test` 通過 3 個測試檔、9 項測試；`npm run build` 通過，ECharts 改為動態載入且不再產生大初始 chunk 警告。
 - 第三階段最後一次驗證：`npm test` 通過 4 個測試檔、15 項測試；`npm run build` 通過。
 - 第四階段：Functions/shared typecheck 通過；本機 Node.js 18 無法執行要求 Node.js 20.19+ 的 Vite build，需在符合專案 engines 的 Node 版本重跑。
 - 第五階段：Functions/shared typecheck 通過；同步 endpoint 會以登入者身分抓取最近 30 天正式資料並以 record key 去重保存。
-- 第六階段：Dashboard API 會讀取登入者保存的正式 records，依 Asia/Taipei 日期聚合；前端不再使用 fixture，無資料的卡片與圖表保持隱藏。
+- 第六階段：Dashboard API 會讀取登入者保存的正式 records，依 Asia/Taipei 日期聚合；前端不再使用 fixture，無資料的卡片與圖表保持隱藏。已加入首次同步入口，並在 Node.js 22.17.1 完成完整測試與 production build。

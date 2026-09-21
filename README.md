@@ -46,7 +46,9 @@ npm install
 - `OWNER_GOOGLE_EMAIL`：唯一允許登入的完整 Google 信箱，只能存在 server environment。
 - `SESSION_SECRET`：至少 32 字元的獨立隨機密鑰。
 - `HEALTH_TOKEN_ENCRYPTION_KEY`：第四階段儲存 refresh token 時使用的獨立密鑰。
-- `NETLIFY_BLOBS_REGION`：固定為 `ap-southeast-1`。
+- `NETLIFY_SITE_ID`：Netlify Project ID，供 Functions 明確連接 site-wide Blobs。
+- `NETLIFY_AUTH_TOKEN`：具備該 site 存取權的 Netlify Personal Access Token，只能存在 server environment。
+- `NETLIFY_BLOBS_REGION` 可省略；未設定時固定使用 `ap-southeast-1`。
 
 任何未以 `VITE_` 開頭的值都不可進入前端 bundle。Production secrets 應在 Netlify UI 設定，不要寫入 `netlify.toml`。
 
@@ -80,6 +82,7 @@ npm run build
 - Functions 目錄：`netlify/functions`
 - SPA fallback 已在 `netlify.toml` 設定。
 - Site-wide Blobs 每次都由唯一 factory 明確指定 `ap-southeast-1`。
+- Production Functions 以 `NETLIFY_SITE_ID` 與 `NETLIFY_AUTH_TOKEN` 明確建立 Blobs store；Personal Access Token 不得進入 browser、log 或 repository。
 - 自訂 Functions region 目前是 Netlify Pro／Enterprise 功能，因此 Legacy Free 使用該站點可用的預設 Functions region，不以升級方案作為正常運作條件。
 - 用量以舊帳號後台的 **Usage & billing** 為準，不套用新版 300 credits 假設。
 
@@ -87,7 +90,7 @@ npm run build
 
 ## 資料保存與安全
 
-- 正式 UI 只顯示實際同步資料；缺資料不等於 0。
+- 正式 UI 只顯示實際同步資料；缺資料不等於 0。Settings 只在最近一年沒有資料時提供「開始同步」。
 - Refresh token 不得進入 browser、log 或未加密的 Blob。
 - 登出時回應 `Clear-Site-Data`，第六階段 PWA 快取也必須遵守此界線。
 - 取消 Google Health 連線只停止同步並隱藏資料，不永久刪除。
