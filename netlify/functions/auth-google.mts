@@ -4,8 +4,9 @@ import { getServerEnvironment } from '../lib/env'
 import { GOOGLE_HEALTH_SCOPE_LIST } from '../lib/google-health'
 import { safeRedirect } from '../lib/response'
 import { createOAuthState, oauthStateCookie } from '../lib/session'
+import { createNetlifyHandler } from '../lib/netlify-handler'
 
-export default async (): Promise<Response> => {
+const fetchHandler = async (): Promise<Response> => {
   try {
     const env = getServerEnvironment()
     const state = await createOAuthState(env.SESSION_SECRET)
@@ -28,6 +29,8 @@ export default async (): Promise<Response> => {
     return safeRedirect('/?auth_error=configuration')
   }
 }
+
+export const handler = createNetlifyHandler(fetchHandler)
 
 export const config: Config = {
   method: 'GET',

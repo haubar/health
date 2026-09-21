@@ -7,10 +7,11 @@ import { AuthRepository } from '../lib/repositories/auth-repository'
 import { HealthRecordRepository } from '../lib/repositories/health-record-repository'
 import { SyncRepository } from '../lib/repositories/sync-repository'
 import { readSession } from '../lib/session'
+import { createNetlifyHandler } from '../lib/netlify-handler'
 
 const DEFAULT_LOOKBACK_DAYS = 30
 
-export default async (request: Request): Promise<Response> => {
+const fetchHandler = async (request: Request): Promise<Response> => {
   const env = getServerEnvironment()
   const user = await readSession(request, env.SESSION_SECRET)
   if (!user) return jsonFailure(401, 'unauthenticated', '請先使用 Google 登入。')
@@ -39,5 +40,7 @@ export default async (request: Request): Promise<Response> => {
     return jsonFailure(502, 'sync_failed', 'Google Health 同步失敗。')
   }
 }
+
+export const handler = createNetlifyHandler(fetchHandler)
 
 export const config: Config = { method: 'POST' }

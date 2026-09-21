@@ -4,10 +4,11 @@ import { getServerEnvironment } from '../lib/env'
 import { jsonFailure, jsonSuccess } from '../lib/response'
 import { HealthRecordRepository } from '../lib/repositories/health-record-repository'
 import { readSession } from '../lib/session'
+import { createNetlifyHandler } from '../lib/netlify-handler'
 
 const RANGE_DAYS: Record<string, number> = { '7D': 7, '30D': 30, '90D': 90, '1Y': 365 }
 
-export default async (request: Request): Promise<Response> => {
+const fetchHandler = async (request: Request): Promise<Response> => {
   const env = getServerEnvironment()
   const user = await readSession(request, env.SESSION_SECRET)
   if (!user) return jsonFailure(401, 'unauthenticated', '請先使用 Google 登入。')
@@ -21,5 +22,7 @@ export default async (request: Request): Promise<Response> => {
   const summaries = aggregateDailyHealthRecords(records)
   return jsonSuccess({ availability: summaries.length ? 'ready' : 'empty', lastUpdatedAt: records.length ? new Date(Math.max(...records.map((record) => Date.parse(record.startTime)))).toISOString() : null, summaries })
 }
+
+export const handler = createNetlifyHandler(fetchHandler)
 
 export const config: Config = { method: 'GET' }

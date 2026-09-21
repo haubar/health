@@ -14,6 +14,7 @@ import {
   sessionCookie,
   verifyOAuthState,
 } from '../lib/session'
+import { createNetlifyHandler } from '../lib/netlify-handler'
 
 function failedRedirect(reason: string): Response {
   return safeRedirect(`/?auth_error=${encodeURIComponent(reason)}`, {
@@ -21,7 +22,7 @@ function failedRedirect(reason: string): Response {
   })
 }
 
-export default async (request: Request): Promise<Response> => {
+const fetchHandler = async (request: Request): Promise<Response> => {
   try {
     const env = getServerEnvironment()
     const url = new URL(request.url)
@@ -79,6 +80,8 @@ export default async (request: Request): Promise<Response> => {
     return failedRedirect('authentication_failed')
   }
 }
+
+export const handler = createNetlifyHandler(fetchHandler)
 
 export const config: Config = {
   method: 'GET',

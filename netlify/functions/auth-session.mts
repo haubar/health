@@ -3,8 +3,9 @@ import type { SessionStatus } from '@health/shared'
 import { getServerEnvironment } from '../lib/env'
 import { jsonSuccess } from '../lib/response'
 import { readSession } from '../lib/session'
+import { createNetlifyHandler } from '../lib/netlify-handler'
 
-export default async (request: Request): Promise<Response> => {
+const fetchHandler = async (request: Request): Promise<Response> => {
   let user = null
   try {
     user = await readSession(request, getServerEnvironment().SESSION_SECRET)
@@ -14,7 +15,8 @@ export default async (request: Request): Promise<Response> => {
   return jsonSuccess<SessionStatus>({ authenticated: user !== null, user })
 }
 
+export const handler = createNetlifyHandler(fetchHandler)
+
 export const config: Config = {
   method: 'GET',
 }
-
