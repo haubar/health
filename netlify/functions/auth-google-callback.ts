@@ -1,0 +1,70 @@
+import type { Config } from '@netlify/functions'
+import type { SessionUser } from '@health/shared'
+import { OAuth2Client } from 'google-auth-library'
+import { readCookie } from '../lib/cookies'
+import { getServerEnvironment } from '../lib/env'
+import { safeRedirect } from '../lib/response'
+import {
+  clearOAuthStateCookie,
+  createSessionToken,
+  OAUTH_STATE_COOKIE,
+  sessionCookie,
+  verifyOAuthState,
+} from '../lib/session'
+
+function failedRedirect(reason: string): Response {
+  return safeRedirect(`/?auth_error=${encodeURIComponent(reason)}`, {
+    headers: { 'Set-Cookie': clearOAuthStateCookie(), 'Cache-Control': 'no-store' },
+  })
+}
+
+export default async (request: Request): Promise<Response> => {
+  try {
+    const env = getServerEnvironment()
+    const url = new URL(request.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    const stateCookie = readCookie(request, OAUTH_STATE_COOKIE)
+
+    if (!code || !state || !stateCookie || state !== stateCookie) return failedRedirect('invalid_state')
+    if (!(await verifyOAuthState(state, env.SESSION_SECRET))) return failedRedirect('invalid_state')
+
+    const client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri: env.GOOGLE_REDIRECT_URI,
+    })
+    const { tokens } = await client.getToken(code)
+    if (!tokens.id_token) return failedRedirect('missing_identity')
+
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: env.GOOGLE_CLIENT_ID,
+    })
+    const payload = ticket.getPayload()
+    const email = payload?.email?.trim().toLowerCase()
+    const ownerEmail = env.OWNER_GOOGLE_EMAIL.trim().toLowerCase()
+
+    if (!payload?.sub || !email || payload.email_verified !== true || email !== ownerEmail) {
+      return failedRedirect('account_not_allowed')
+    }
+
+    const user: SessionUser = {
+      id: payload.sub,
+      email,
+      displayName: payload.name?.trim() || null,
+    }
+    const token = await createSessionToken(user, env.SESSION_SECRET)
+    const response = safeRedirect('/dashboard', { headers: { 'Cache-Control': 'no-store' } })
+    response.headers.append('Set-Cookie', sessionCookie(token))
+    response.headers.append('Set-Cookie', clearOAuthStateCookie())
+    return response
+  } catch {
+    return failedRedirect('authentication_failed')
+  }
+}
+
+export const config: Config = {
+  method: 'GET',
+}
+
