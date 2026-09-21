@@ -4,7 +4,7 @@ import { OAuth2Client } from 'google-auth-library'
 import { readCookie } from '../lib/cookies'
 import { encryptSecret } from '../lib/crypto'
 import { getServerEnvironment } from '../lib/env'
-import { GOOGLE_AUTH_SCOPE_LIST, GOOGLE_HEALTH_SCOPE_LIST } from '../lib/google-health'
+import { GOOGLE_HEALTH_SCOPE_LIST } from '../lib/google-health'
 import { AuthRepository } from '../lib/repositories/auth-repository'
 import { safeRedirect } from '../lib/response'
 import {
@@ -59,7 +59,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     await new AuthRepository().set(payload.sub, {
       provider: 'google_health',
       encryptedRefreshToken: encryptSecret(tokens.refresh_token, env.HEALTH_TOKEN_ENCRYPTION_KEY),
-      scopes: grantedScopes.filter((scope) => GOOGLE_AUTH_SCOPE_LIST.includes(scope as (typeof GOOGLE_AUTH_SCOPE_LIST)[number])),
+      scopes: grantedScopes.filter((scope) => GOOGLE_HEALTH_SCOPE_LIST.includes(scope as (typeof GOOGLE_HEALTH_SCOPE_LIST)[number])),
       status: 'connected',
       expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
       lastSyncAt: null,
