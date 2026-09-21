@@ -4,12 +4,13 @@
 
 ## 目前階段
 
-第六階段「正式資料 Dashboard」已完成實作，目前進行 Netlify 正式環境驗證。
+第六階段「正式資料 Dashboard」已完成，Google Health 正式環境同步已確認正常；目前先維持純 Google Health，暫不整合 Google Fit 或其他資料來源。
 
 ## 下次接續位置
 
-1. 部署最新 commit 後，在 Settings 使用「開始同步」匯入首次健康資料。
-2. 驗證同步結果、Dashboard API 與 Google OAuth production redirect URI。
+1. 若繼續優化，先設計 Google Health、Google Fit、Health Connect 的獨立資料來源與同步策略。
+2. 各資料來源必須使用獨立 OAuth token；Google Health API 會拒絕含有 Google Fit scope 的 token（`DISALLOWED_OAUTH_SCOPES`）。
+3. Google Fit 僅在另行規劃完成後再加入，不要直接混入目前 Google Health OAuth 或正式 records。
 
 ## 重要限制
 
@@ -18,6 +19,7 @@
 - 只允許擁有者使用 Google 登入；browser 不可提供 `userId` 或 Blob key。
 - Netlify Legacy Free：不得要求付費自訂 Functions region。Blobs 仍明確使用 `ap-southeast-1`。
 - Google Health 欄位與 scope 僅依官方 REST/API 文件實作；V1 不查詢心率、睡眠或 recovery。
+- 目前版本已移除 Google Fit 唯讀檢查功能；Google Fit 的獨立授權與比較功能尚未實作。
 
 ## 最近驗證結果
 
@@ -25,7 +27,9 @@
 - `npm test`：5 個測試檔、17 項測試通過。
 - `npm run build`：Node.js 22.17.1 下 shared、Vue 與 Functions typecheck 通過；Vite production build 通過。
 - `git diff --check`：通過。
-- 最新功能：Settings 僅在最近一年沒有資料時顯示「開始同步」，同步完成後顯示筆數或錯誤。
+- 最新 commit：`b70db90`，移除 Google Fit 檢查並恢復純 Google Health OAuth。
+- Settings 會依是否已有資料顯示「開始同步」或「重新同步」；同步 endpoint 會回傳總筆數與各類型筆數。
+- 正式環境已確認 Google Health 同步正常；重新登入後使用純 Google Health token 可避免 `DISALLOWED_OAUTH_SCOPES`。
 - 第二階段最後一次驗證：`npm test` 通過 3 個測試檔、9 項測試；`npm run build` 通過，ECharts 改為動態載入且不再產生大初始 chunk 警告。
 - 第三階段最後一次驗證：`npm test` 通過 4 個測試檔、15 項測試；`npm run build` 通過。
 - 第四階段：Functions/shared typecheck 通過；本機 Node.js 18 無法執行要求 Node.js 20.19+ 的 Vite build，需在符合專案 engines 的 Node 版本重跑。
