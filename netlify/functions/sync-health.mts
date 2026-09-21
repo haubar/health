@@ -36,6 +36,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     return jsonSuccess({ lastCompletedAt: completedAt, recordCount: records.length })
   } catch (error) {
     const errorCode = error instanceof Error ? error.constructor.name : 'sync_failed'
+    console.error('sync-health failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })
     await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: null, status: 'error', recordCount: 0, errorCode })
     return jsonFailure(502, 'sync_failed', 'Google Health 同步失敗。')
   }
