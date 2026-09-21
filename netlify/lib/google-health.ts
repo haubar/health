@@ -52,8 +52,10 @@ export class GoogleHealthProvider implements HealthProvider {
     const auth = await this.oauthClient.getAccessToken(); if (!auth.token) throw new Error('Google Health access token unavailable')
     const output: HealthRecord[] = []; let pageToken: string | undefined
     do {
-      const url = new URL(`${GOOGLE_HEALTH_API_BASE}/users/${encodeURIComponent(this.userId)}/dataTypes/${path}/dataPoints`); url.searchParams.set('filter', filterFor(path, range)); if (pageToken) url.searchParams.set('pageToken', pageToken)
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${auth.token}` } }); if (!response.ok) throw new GoogleHealthApiError(response.status, response.statusText)
+      // The OpenID Connect subject is our internal owner key, not a Google Health user ID.
+      // `users/me` lets Google resolve the Health identity from the access token.
+      const url = new URL(`${GOOGLE_HEALTH_API_BASE}/users/me/dataTypes/${path}/dataPoints`); url.searchParams.set('filter', filterFor(path, range)); if (pageToken) url.searchParams.set('pageToken', pageToken)
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' } }); if (!response.ok) { const errorBody = await response.text(); throw new GoogleHealthApiError(response.status, errorBody.slice(0, 500) || response.statusText) }
       const body = (await response.json()) as ListResponse
       for (const [index, point] of (body.dataPoints ?? []).entries()) { const times = definition.times(point); if (!times) continue; const value = definition.value(point); const metadata = definition.metadata?.(point); output.push({ id: normalizedId(point.name, `${path}-${times.start}-${index}`), userId: this.userId, provider: 'google_health', sourceRecordId: point.name ?? `${path}-${times.start}-${index}`, sourceApp: point.dataSource?.application?.name, type: definition.recordType, startTime: new Date(times.start).toISOString(), ...(times.end ? { endTime: new Date(times.end).toISOString() } : {}), ...(value === undefined ? {} : { value }), ...(definition.unit ? { unit: definition.unit } : {}), resolution: definition.resolution, ...(metadata ? { metadata: removeUndefined(metadata) } : {}) }) }
       pageToken = body.nextPageToken
