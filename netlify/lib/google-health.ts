@@ -37,7 +37,7 @@ function sample(value: string | undefined): { start: string } | null { return va
 function filterFor(type: string, range: DateRange): string { const start = range.start.toISOString(); const end = range.end.toISOString(); const field = type === 'weight' ? 'weight.sample_time.physical_time' : type === 'body-fat' ? 'body_fat.sample_time.physical_time' : `${type.replaceAll('-', '_')}.interval.start_time`; return `${field} >= "${start}" AND ${field} < "${end}"` }
 function normalizedId(name: string | undefined, fallback: string): string { const candidate = name?.split('/').pop(); return candidate && /^[a-z0-9-]{4,63}$/.test(candidate) ? candidate : fallback }
 
-export class GoogleHealthApiError extends Error { constructor(public readonly status: number, public readonly reason: string) { super(`Google Health API request failed: ${status}`) } }
+export class GoogleHealthApiError extends Error { constructor(public readonly status: number, public readonly reason: string) { super(`Google Health API request failed: ${status}${reason ? `: ${reason}` : ''}`) } }
 
 export class GoogleHealthProvider implements HealthProvider {
   private readonly oauthClient: OAuth2Client
