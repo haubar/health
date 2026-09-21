@@ -11,6 +11,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["netlify/**/*.ts"],
+  "include": ["netlify/**/*.ts", "netlify/**/*.mts"],
   "exclude": ["**/*.test.ts"]
 }
