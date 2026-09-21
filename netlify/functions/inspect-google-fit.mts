@@ -1,7 +1,8 @@
 import type { Config } from '@netlify/functions'
 import { decryptSecret } from '../lib/crypto'
 import { getServerEnvironment } from '../lib/env'
-import { GoogleFitProvider } from '../lib/google-fit'
+import { GoogleFitApiError, GoogleFitProvider } from '../lib/google-fit'
+import { GOOGLE_FIT_SCOPE_LIST } from '../lib/google-health'
 import { jsonFailure, jsonSuccess } from '../lib/response'
 import { AuthRepository } from '../lib/repositories/auth-repository'
 import { readSession } from '../lib/session'
@@ -15,6 +16,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   if (!user) return jsonFailure(401, 'unauthenticated', '請先使用 Google 登入。')
   const auth = await new AuthRepository().get(user.id)
   if (!auth || auth.status !== 'connected') return jsonFailure(409, 'health_not_connected', '尚未連結 Google 帳號。')
+  if (!GOOGLE_FIT_SCOPE_LIST.every((scope) => auth.scopes.includes(scope))) return jsonFailure(409, 'google_fit_not_authorized', '目前登入授權沒有 Google Fit 讀取權限，請登出後重新登入並同意 Google Fit 權限。')
 
   try {
     const end = new Date()
@@ -26,6 +28,10 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     return jsonSuccess({ start: start.toISOString(), end: end.toISOString(), data })
   } catch (error) {
     console.error('inspect-google-fit failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })
+    if (error instanceof GoogleFitApiError) {
+      console.error('inspect-google-fit api error', { status: error.status, reason: error.reason })
+      return jsonFailure(502, 'google_fit_api_error', `Google Fit API 回應 ${error.status}，請查看 Google Cloud 的 Fitness API 是否已啟用。`)
+    }
     return jsonFailure(502, 'google_fit_check_failed', 'Google Fit 檢查失敗，請確認已重新授權 Google Fit 讀取權限。')
   }
 }
