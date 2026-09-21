@@ -14,7 +14,10 @@ export interface JsonBlobStore {
 
 export function createBlobStore(name: string): JsonBlobStore {
   const region = regionSchema.parse(process.env.NETLIFY_BLOBS_REGION ?? 'ap-southeast-1')
-  const store = getStore({ name, region })
+  const siteID = process.env.NETLIFY_SITE_ID ?? process.env.SITE_ID
+  const token = process.env.NETLIFY_AUTH_TOKEN
+  if (!siteID || !token) throw new Error('Netlify Blobs requires NETLIFY_SITE_ID and NETLIFY_AUTH_TOKEN')
+  const store = getStore({ name, region, siteID, token })
 
   return {
     getJson: (key, consistency) => store.get(key, { type: 'json', consistency }),
