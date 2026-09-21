@@ -6,6 +6,12 @@ export const GOOGLE_HEALTH_SCOPES = {
   measurements: 'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
 } as const
 export const GOOGLE_HEALTH_SCOPE_LIST = Object.values(GOOGLE_HEALTH_SCOPES)
+export const GOOGLE_FIT_SCOPES = {
+  activity: 'https://www.googleapis.com/auth/fitness.activity.read',
+  body: 'https://www.googleapis.com/auth/fitness.body.read',
+} as const
+export const GOOGLE_FIT_SCOPE_LIST = Object.values(GOOGLE_FIT_SCOPES)
+export const GOOGLE_AUTH_SCOPE_LIST = [...GOOGLE_HEALTH_SCOPE_LIST, ...GOOGLE_FIT_SCOPE_LIST] as const
 export const GOOGLE_HEALTH_API_BASE = 'https://health.googleapis.com/v4'
 
 type Interval = { startTime?: string; endTime?: string }

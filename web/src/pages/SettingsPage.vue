@@ -8,6 +8,8 @@ const auth = useAuthStore()
 const hasData = ref<boolean | null>(null)
 const syncing = ref(false)
 const syncMessage = ref('')
+const checkingFit = ref(false)
+const fitMessage = ref('')
 
 onMounted(async () => {
   try {
@@ -31,6 +33,20 @@ async function startSync(): Promise<void> {
     syncMessage.value = error instanceof ApiError ? error.message : '同步失敗，請稍後再試。'
   } finally {
     syncing.value = false
+  }
+}
+
+async function inspectGoogleFit(): Promise<void> {
+  checkingFit.value = true
+  fitMessage.value = ''
+  try {
+    const result = await healthDataClient.inspectGoogleFit()
+    const labels: Record<string, string> = { activity: '步數', distance: '距離', weight: '體重', bodyFat: '體脂' }
+    fitMessage.value = Object.entries(result.data).map(([key, value]) => `${labels[key] ?? key} ${value.points} 筆`).join('；')
+  } catch (error) {
+    fitMessage.value = error instanceof ApiError ? error.message : 'Google Fit 檢查失敗，請稍後再試。'
+  } finally {
+    checkingFit.value = false
   }
 }
 </script>
@@ -62,6 +78,17 @@ async function startSync(): Promise<void> {
       </button>
     </article>
     <p v-if="syncMessage" class="status-message">{{ syncMessage }}</p>
+
+    <article class="settings-card sync-card">
+      <div>
+        <p class="field-label">Google Fit（唯讀檢查）</p>
+        <p>只查詢最近 30 天資料，不會寫入或合併到健康總覽。</p>
+      </div>
+      <button class="secondary-action" type="button" :disabled="checkingFit" @click="inspectGoogleFit">
+        {{ checkingFit ? '檢查中…' : '檢查 Google Fit' }}
+      </button>
+    </article>
+    <p v-if="fitMessage" class="status-message">{{ fitMessage }}</p>
 
     <a class="secondary-action" href="/.netlify/functions/auth-logout">登出</a>
   </section>
