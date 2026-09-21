@@ -52,13 +52,13 @@ async function startSync(): Promise<void> {
       <span class="connection-state">已驗證</span>
     </article>
 
-    <article v-if="hasData === false" class="settings-card sync-card">
+    <article v-if="hasData !== null" class="settings-card sync-card">
       <div>
         <p class="field-label">Google Health</p>
-        <p>目前尚未同步健康資料。</p>
+        <p>{{ hasData ? '重新讀取最近 30 天的健康資料。' : '目前尚未同步健康資料。' }}</p>
       </div>
       <button class="primary-action sync-button" type="button" :disabled="syncing" @click="startSync">
-        {{ syncing ? '同步中…' : '開始同步' }}
+        {{ syncing ? '同步中…' : hasData ? '重新同步' : '開始同步' }}
       </button>
     </article>
     <p v-if="syncMessage" class="status-message">{{ syncMessage }}</p>
