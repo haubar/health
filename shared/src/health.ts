@@ -8,6 +8,7 @@ export const healthRecordTypeSchema = z.enum([
   'lean_mass',
   'height',
   'exercise',
+  'active_minutes',
   'active_calories',
   'total_calories',
 ])
@@ -42,4 +43,3 @@ export interface HealthProvider {
   getBodyFat(range: DateRange): Promise<HealthRecord[]>
   getWorkouts(range: DateRange): Promise<HealthRecord[]>
 }
-
