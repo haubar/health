@@ -13,7 +13,7 @@ describe('health token encryption', () => {
   it('rejects tampered ciphertext', () => {
     const encrypted = encryptSecret('refresh-token', key)
     const parts = encrypted.split('.')
-    parts[3] = `${parts[3]!.slice(0, -1)}${parts[3]!.endsWith('a') ? 'b' : 'a'}`
+    parts[2] = `${parts[2]!.startsWith('a') ? 'b' : 'a'}${parts[2]!.slice(1)}`
     const tampered = parts.join('.')
     expect(() => decryptSecret(tampered, key)).toThrow()
   })
