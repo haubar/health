@@ -24,7 +24,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     start.setUTCDate(start.getUTCDate() - LOOKBACK_DAYS)
     const provider = new GoogleFitProvider(decryptSecret(auth.encryptedRefreshToken, env.HEALTH_TOKEN_ENCRYPTION_KEY), env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
     const data = await provider.inspect({ start, end })
-    console.log('inspect-google-fit completed', Object.fromEntries(Object.entries(data).map(([key, value]) => [key, value.points])))
+    console.log('inspect-google-fit completed', Object.fromEntries(Object.entries(data).map(([key, value]) => [key, { points: value.points, error: value.error }])))
     return jsonSuccess({ start: start.toISOString(), end: end.toISOString(), data })
   } catch (error) {
     console.error('inspect-google-fit failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })

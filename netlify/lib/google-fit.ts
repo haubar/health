@@ -19,6 +19,7 @@ export type GoogleFitCheck = {
   points: number
   latest: number | null
   latestAt: string | null
+  error?: string
 }
 
 export class GoogleFitApiError extends Error {
@@ -36,7 +37,15 @@ export class GoogleFitProvider {
   }
 
   async inspect(range: { start: Date; end: Date }): Promise<Record<keyof typeof DATA_TYPES, GoogleFitCheck>> {
-    const entries = await Promise.all(Object.entries(DATA_TYPES).map(async ([key, dataTypeName]) => [key, await this.aggregate(dataTypeName, range)] as const))
+    const entries = await Promise.all(Object.entries(DATA_TYPES).map(async ([key, dataTypeName]) => {
+      try {
+        return [key, await this.aggregate(dataTypeName, range)] as const
+      } catch (error) {
+        if (!(error instanceof GoogleFitApiError)) throw error
+        console.error('inspect-google-fit data type unavailable', { dataTypeName, status: error.status, reason: error.reason })
+        return [key, { points: 0, latest: null, latestAt: null, error: `API ${error.status}` }] as const
+      }
+    }))
     return Object.fromEntries(entries) as Record<keyof typeof DATA_TYPES, GoogleFitCheck>
   }
 

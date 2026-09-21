@@ -42,7 +42,7 @@ async function inspectGoogleFit(): Promise<void> {
   try {
     const result = await healthDataClient.inspectGoogleFit()
     const labels: Record<string, string> = { activity: '步數', distance: '距離', weight: '體重', bodyFat: '體脂' }
-    fitMessage.value = Object.entries(result.data).map(([key, value]) => `${labels[key] ?? key} ${value.points} 筆`).join('；')
+    fitMessage.value = Object.entries(result.data).map(([key, value]) => `${labels[key] ?? key} ${value.error ? `不可用（${value.error}）` : `${value.points} 筆`}`).join('；')
   } catch (error) {
     fitMessage.value = error instanceof ApiError ? error.message : 'Google Fit 檢查失敗，請稍後再試。'
   } finally {
