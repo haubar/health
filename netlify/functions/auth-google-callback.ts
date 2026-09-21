@@ -2,7 +2,10 @@ import type { Config } from '@netlify/functions'
 import type { SessionUser } from '@health/shared'
 import { OAuth2Client } from 'google-auth-library'
 import { readCookie } from '../lib/cookies'
+import { encryptSecret } from '../lib/crypto'
 import { getServerEnvironment } from '../lib/env'
+import { GOOGLE_HEALTH_SCOPE_LIST } from '../lib/google-health'
+import { AuthRepository } from '../lib/repositories/auth-repository'
 import { safeRedirect } from '../lib/response'
 import {
   clearOAuthStateCookie,
@@ -36,6 +39,8 @@ export default async (request: Request): Promise<Response> => {
     })
     const { tokens } = await client.getToken(code)
     if (!tokens.id_token) return failedRedirect('missing_identity')
+    const grantedScopes = (tokens.scope ?? '').split(' ').filter(Boolean)
+    if (!tokens.refresh_token || !GOOGLE_HEALTH_SCOPE_LIST.some((scope) => grantedScopes.includes(scope))) return failedRedirect('missing_health_consent')
 
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,
@@ -48,6 +53,17 @@ export default async (request: Request): Promise<Response> => {
     if (!payload?.sub || !email || payload.email_verified !== true || email !== ownerEmail) {
       return failedRedirect('account_not_allowed')
     }
+
+    const now = new Date().toISOString()
+    await new AuthRepository().set(payload.sub, {
+      provider: 'google_health',
+      encryptedRefreshToken: encryptSecret(tokens.refresh_token, env.HEALTH_TOKEN_ENCRYPTION_KEY),
+      scopes: grantedScopes.filter((scope) => GOOGLE_HEALTH_SCOPE_LIST.includes(scope as (typeof GOOGLE_HEALTH_SCOPE_LIST)[number])),
+      status: 'connected',
+      expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+      lastSyncAt: null,
+      updatedAt: now,
+    })
 
     const user: SessionUser = {
       id: payload.sub,
@@ -67,4 +83,3 @@ export default async (request: Request): Promise<Response> => {
 export const config: Config = {
   method: 'GET',
 }
-

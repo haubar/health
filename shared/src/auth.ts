@@ -13,3 +13,14 @@ export type SessionStatus = {
   user: SessionUser | null
 }
 
+export const googleHealthConnectionSchema = z.object({
+  provider: z.literal('google_health'),
+  encryptedRefreshToken: z.string().min(1),
+  scopes: z.array(z.string().url()).min(1),
+  status: z.enum(['connected', 'disconnected', 'error']),
+  expiresAt: z.iso.datetime().nullable(),
+  lastSyncAt: z.iso.datetime().nullable(),
+  updatedAt: z.iso.datetime(),
+})
+
+export type GoogleHealthConnection = z.infer<typeof googleHealthConnectionSchema>

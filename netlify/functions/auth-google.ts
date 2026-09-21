@@ -1,6 +1,7 @@
 import type { Config } from '@netlify/functions'
 import { OAuth2Client } from 'google-auth-library'
 import { getServerEnvironment } from '../lib/env'
+import { GOOGLE_HEALTH_SCOPE_LIST } from '../lib/google-health'
 import { safeRedirect } from '../lib/response'
 import { createOAuthState, oauthStateCookie } from '../lib/session'
 
@@ -14,9 +15,10 @@ export default async (): Promise<Response> => {
       redirectUri: env.GOOGLE_REDIRECT_URI,
     })
     const authorizationUrl = client.generateAuthUrl({
-      scope: ['openid', 'email', 'profile'],
+      scope: ['openid', 'email', 'profile', ...GOOGLE_HEALTH_SCOPE_LIST],
       state,
-      prompt: 'select_account',
+      access_type: 'offline',
+      prompt: 'consent select_account',
     })
 
     return safeRedirect(authorizationUrl, {
@@ -30,4 +32,3 @@ export default async (): Promise<Response> => {
 export const config: Config = {
   method: 'GET',
 }
-
