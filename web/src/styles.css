@@ -60,6 +60,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .state-icon { display: grid; place-items: center; flex: 0 0 auto; width: 2.7rem; height: 2.7rem; border-radius: .85rem; background: #173f34; color: #82f0c4; font-size: 1.25rem; font-weight: 800; }
 .state-card[data-state="error"] .state-icon { color: #ffd4a6; background: #3b2a1d; }
 .settings-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.5rem; }
+.sync-card { border-color: #275849; }
+.sync-button { border: 0; cursor: pointer; font: inherit; }
+.sync-button:disabled { cursor: wait; opacity: .65; }
 .field-label { margin: 0 0 .45rem; color: #7f918b; font-size: .8rem; }
 .settings-card p:last-child { margin: 0; }
 .connection-state { border-color: #275849; color: #82f0c4; }
