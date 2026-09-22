@@ -35,7 +35,7 @@ function sumActiveMinutes(values: Array<{ activeMinutes?: string }> | undefined)
 function interval(value: Interval | undefined): { start: string; end?: string } | null { return value?.startTime ? { start: value.startTime, ...(value.endTime ? { end: value.endTime } : {}) } : null }
 function sample(value: string | undefined): { start: string } | null { return value ? { start: value } : null }
 function filterFor(type: string, range: DateRange): string { const start = range.start.toISOString(); const end = range.end.toISOString(); const dataType = type.replaceAll('-', '_'); const field = type === 'weight' ? 'weight.sample_time.physical_time' : type === 'body-fat' ? 'body_fat.sample_time.physical_time' : type === 'exercise' ? 'exercise.interval.civil_start_time' : `${dataType}.interval.start_time`; const lower = type === 'exercise' ? range.start.toISOString().replace(/Z$/, '') : start; const upper = type === 'exercise' ? range.end.toISOString().replace(/Z$/, '') : end; return `${field} >= "${lower}" AND ${field} < "${upper}"` }
-function normalizedId(name: string | undefined, fallback: string): string { const candidate = name?.split('/').pop(); return candidate && /^[a-z0-9-]{4,63}$/.test(candidate) ? candidate : fallback }
+function normalizedId(name: string | undefined, fallback: string): string { const candidate = name?.split('/').pop(); if (candidate && /^[a-z0-9-]{4,63}$/.test(candidate)) return candidate; return fallback.toLowerCase().replace(/[^a-z0-9_-]/g, '-') }
 
 export class GoogleHealthApiError extends Error { constructor(public readonly status: number, public readonly reason: string) { super(`Google Health API request failed: ${status}${reason ? `: ${reason}` : ''}`) } }
 
