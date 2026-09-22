@@ -29,6 +29,11 @@ export const blobKeys = {
     const [year, monthNumber] = month.split('-')
     return `users/${segment(userId, 'userId')}/daily/${year}/${monthNumber}/`
   },
+  recordMonthPrefix: (userId: string, dataType: HealthRecordType, month: string) => {
+    if (!monthPattern.test(month)) throw new Error('Invalid calendar month')
+    const [year, monthNumber] = month.split('-')
+    return `users/${segment(userId, 'userId')}/records/${dataType}/${year}/${monthNumber}/`
+  },
   record: (
     userId: string,
     dataType: HealthRecordType,
@@ -39,4 +44,3 @@ export const blobKeys = {
     return `users/${segment(userId, 'userId')}/records/${dataType}/${year}/${month}/${segment(recordId, 'recordId')}.json`
   },
 }
-
