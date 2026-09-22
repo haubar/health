@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { ApiError } from '../services/api'
 import { healthDataClient } from '../services/health-data'
 
 const auth = useAuthStore()
@@ -22,13 +21,15 @@ async function startSync(): Promise<void> {
   syncing.value = true
   syncMessage.value = ''
   try {
-    const result = await healthDataClient.sync()
+    const result = await healthDataClient.sync(({ batch, batchCount, recordCount }) => {
+      syncMessage.value = `正在讀取第 ${batch}/${batchCount} 天，已取得 ${recordCount} 筆資料…`
+    })
     hasData.value = result.recordCount > 0
     syncMessage.value = result.recordCount > 0
       ? `已同步 ${result.recordCount} 筆資料。請返回健康總覽查看。`
         : '同步完成，但 Google Health 目前沒有可用資料。'
   } catch (error) {
-    syncMessage.value = error instanceof ApiError ? error.message : '同步失敗，請稍後再試。'
+    syncMessage.value = error instanceof Error ? error.message : '同步失敗，請稍後再試。'
   } finally {
     syncing.value = false
   }

@@ -10,7 +10,7 @@ import { readSession } from '../lib/session'
 import { createNetlifyHandler } from '../lib/netlify-handler'
 
 const DEFAULT_LOOKBACK_DAYS = 30
-const BATCH_DAYS = 5
+const BATCH_DAYS = 1
 const BATCH_COUNT = DEFAULT_LOOKBACK_DAYS / BATCH_DAYS
 
 const fetchHandler = async (request: Request): Promise<Response> => {
@@ -50,14 +50,21 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     const [activity, weight, bodyFat, workouts] = await Promise.all([provider.getActivity({ start, end }), provider.getWeight({ start, end }), provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end })])
     const records = [...activity, ...weight, ...bodyFat, ...workouts]
     const recordCounts = { activity: activity.length, weight: weight.length, bodyFat: bodyFat.length, workouts: workouts.length }
-    console.log('sync-health records fetched', recordCounts)
+    console.log('sync-health batch fetched', {
+      batch,
+      batchCount: BATCH_COUNT,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      recordCounts,
+      recordCount: records.length,
+    })
     const repository = new HealthRecordRepository()
     await repository.setMany(records)
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1
     const completedAt = done ? new Date().toISOString() : null
     await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: completedAt, status: done ? 'idle' : 'running', recordCount: totalRecordCount, errorCode: null })
-    return jsonSuccess({ runStartedAt: startedAt, lastCompletedAt: completedAt, recordCount: records.length, totalRecordCount, done, recordCounts })
+    return jsonSuccess({ batch, batchCount: BATCH_COUNT, runStartedAt: startedAt, startTime: start.toISOString(), endTime: end.toISOString(), lastCompletedAt: completedAt, recordCount: records.length, totalRecordCount, done, recordCounts })
   } catch (error) {
     const errorCode = error instanceof Error ? error.constructor.name : 'sync_failed'
     console.error('sync-health failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })
