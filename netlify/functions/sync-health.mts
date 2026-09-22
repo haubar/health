@@ -47,4 +47,4 @@ const fetchHandler = async (request: Request): Promise<Response> => {
 
 export const handler = createNetlifyHandler(fetchHandler)
 
-export const config: Config = { method: 'POST' }
+export const config: Config = { method: 'POST', background: true }
