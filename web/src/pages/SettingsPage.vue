@@ -21,23 +21,12 @@ onMounted(async () => {
 async function startSync(): Promise<void> {
   syncing.value = true
   syncMessage.value = ''
-  const requestedAt = Date.now()
   try {
-    await healthDataClient.sync()
-    const deadline = Date.now() + 14 * 60 * 1000
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000))
-      const { state } = await healthDataClient.getSyncStatus()
-      if (!state || !state.lastStartedAt || Date.parse(state.lastStartedAt) < requestedAt) continue
-      if (state.status === 'running') continue
-      if (state.status === 'error') throw new ApiError(state.errorCode ?? 'SYNC_FAILED', '同步失敗，請稍後再試。')
-      hasData.value = state.recordCount > 0
-      syncMessage.value = state.recordCount > 0
-        ? `已同步 ${state.recordCount} 筆資料。請返回健康總覽查看。`
+    const result = await healthDataClient.sync()
+    hasData.value = result.recordCount > 0
+    syncMessage.value = result.recordCount > 0
+      ? `已同步 ${result.recordCount} 筆資料。請返回健康總覽查看。`
         : '同步完成，但 Google Health 目前沒有可用資料。'
-      return
-    }
-    throw new ApiError('SYNC_TIMEOUT', '同步仍在背景執行，請稍後重新整理查看。')
   } catch (error) {
     syncMessage.value = error instanceof ApiError ? error.message : '同步失敗，請稍後再試。'
   } finally {
