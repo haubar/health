@@ -17,6 +17,17 @@ export class HealthRecordRepository {
     return this.documents.set(blobKeys.record(record.userId, record.type, date, record.id), record)
   }
 
+  async setMany(records: HealthRecord[], concurrency = 25): Promise<void> {
+    let nextIndex = 0
+    const workers = Array.from({ length: Math.min(concurrency, records.length) }, async () => {
+      while (nextIndex < records.length) {
+        const index = nextIndex++
+        await this.set(records[index]!)
+      }
+    })
+    await Promise.all(workers)
+  }
+
   async list(userId: string, start: Date, end: Date): Promise<HealthRecord[]> {
     const keys = await this.store.list(`users/${userId}/records/`)
     const records = await Promise.all(keys.map((key: string) => this.documents.get(key)))

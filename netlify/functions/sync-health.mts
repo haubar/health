@@ -33,7 +33,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     const recordCounts = { activity: activity.length, weight: weight.length, bodyFat: bodyFat.length, workouts: workouts.length }
     console.log('sync-health records fetched', recordCounts)
     const repository = new HealthRecordRepository()
-    for (const record of records) await repository.set(record)
+    await repository.setMany(records)
     const completedAt = new Date().toISOString()
     await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: completedAt, status: 'idle', recordCount: records.length, errorCode: null })
     return jsonSuccess({ lastCompletedAt: completedAt, recordCount: records.length, recordCounts })
