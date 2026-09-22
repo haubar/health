@@ -30,6 +30,23 @@ export const blobKeys = {
     const [year, monthNumber] = month.split('-')
     return `users/${segment(userId, 'userId')}/daily/${year}/${monthNumber}/`
   },
+  score: (userId: string, date: string) => {
+    const { year, month } = dateParts(date)
+    return `users/${segment(userId, 'userId')}/scores/${year}/${month}/${date}.json`
+  },
+  insight: (userId: string, date: string) => {
+    const { year, month } = dateParts(date)
+    return `users/${segment(userId, 'userId')}/insights/${year}/${month}/${date}.json`
+  },
+  timelineMonth: (userId: string, month: string) => {
+    if (!monthPattern.test(month)) throw new Error('Invalid calendar month')
+    const [year, monthNumber] = month.split('-')
+    return `users/${segment(userId, 'userId')}/timeline/${year}/${monthNumber}/${month}.json`
+  },
+  weeklySummary: (userId: string, weekStart: string) => {
+    const { year, month } = dateParts(weekStart)
+    return `users/${segment(userId, 'userId')}/weekly/${year}/${month}/${weekStart}.json`
+  },
   recordMonthPrefix: (userId: string, dataType: HealthRecordType, month: string) => {
     if (!monthPattern.test(month)) throw new Error('Invalid calendar month')
     const [year, monthNumber] = month.split('-')

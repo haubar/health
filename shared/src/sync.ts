@@ -9,6 +9,7 @@ export const syncStateSchema = z.object({
   status: z.enum(['idle', 'running', 'error']),
   recordCount: z.number().int().nonnegative(),
   errorCode: z.string().min(1).nullable(),
+  scheduledLastRunAt: z.iso.datetime().nullable().optional(),
 })
 
 export type SyncState = z.infer<typeof syncStateSchema>

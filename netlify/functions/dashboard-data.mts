@@ -58,7 +58,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     }),
   ])
   const sourceVersion = syncState
-    ? `${syncState.lastStartedAt ?? 'none'}|${syncState.status}|${syncState.recordCount}|${syncState.lastCompletedAt ?? 'none'}`
+    ? `${syncState.lastStartedAt ?? 'none'}|${syncState.status}|${syncState.recordCount}|${syncState.lastCompletedAt ?? 'none'}|${syncState.scheduledLastRunAt ?? 'none'}`
     : 'no-sync-state'
   if (cacheable && cached?.sourceVersion === sourceVersion && Date.now() - Date.parse(cached.cachedAt) < CACHE_TTL_MS) {
     console.log('dashboard-data cache hit', { range, durationMs: Date.now() - requestStartedAt })
