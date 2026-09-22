@@ -93,9 +93,9 @@ health-sync
 - Idempotency comes from stable keys: the same Google Health source record must always map to the same Blob key.
 - Use `strong` consistency for OAuth connection state, user settings, and sync cursor/state.
 - Historical records and completed aggregates may use eventual consistency where immediate update visibility is not required.
-- Pick one explicit site-wide Blob region and use it consistently in every `getStore` call.
-- Use `ap-southeast-1` for all site-wide Blob stores. Read `NETLIFY_BLOBS_REGION=ap-southeast-1` through one store factory and pass it to every `getStore()` call; never rely on the `us-east-2` default. Treat a region change as a data migration.
-- Singapore (`sin`) remains the preferred Functions region, but Netlify currently documents custom Functions regions as a Pro/Enterprise feature, which conflicts with the Legacy Free constraint. On Legacy Free, use the site's available default Functions region and do not upgrade merely to select `sin`. Functions and Blob regions are independent; always pass the explicit Blob region even when Functions use their default region.
+- Use one site-wide Blob region consistently in every `getStore` call.
+- Use Netlify's default `us-east-2` region for all site-wide Blob stores by omitting `region` from every `getStore()` call. Treat a region change as a data migration.
+- Singapore (`sin`) remains the preferred Functions region, but Netlify currently documents custom Functions regions as a Pro/Enterprise feature, which conflicts with the Legacy Free constraint. On Legacy Free, use the site's available default Functions region and do not upgrade merely to select `sin`. Functions and Blob regions are independent; site-wide Blob stores use the default `us-east-2` region.
 - The browser must never receive a generic endpoint that accepts an arbitrary Blob key.
 - Derive `userId` from the authenticated session inside Functions.
 - Netlify Blobs encrypts data at rest and in transit, but refresh tokens must also be encrypted at the application layer before storage.

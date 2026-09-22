@@ -35,5 +35,5 @@ Navigation 由 capability 驅動。只有在同步完成且正規化資料至少
 - 刻意使用 Vite 7.3，因為它受支援且能配合目前可用的 Node 22.17 runtime；版本升級會另行處理，不與功能階段混在一起。
 - 固定使用 TypeScript 5.9，因為目前官方 Vue TypeScript 設定宣告 peer range 為 TypeScript 5.x；不使用強制安裝繞過相依衝突。
 - 使用 Netlify 的 Fetch-style `Request`／`Response` Functions API，不使用舊版 event API。
-- Site-wide Blob 存取集中管理，每次都設定 `ap-southeast-1`。
+- Site-wide Blob 存取集中管理，使用 Netlify 預設 region `us-east-2`。
 - 不固定 Functions region，因為目前自訂 region 需要付費 Netlify 方案。

@@ -7,7 +7,6 @@ const serverEnvironmentSchema = z.object({
   OWNER_GOOGLE_EMAIL: z.email(),
   SESSION_SECRET: z.string().min(32),
   HEALTH_TOKEN_ENCRYPTION_KEY: z.string().min(43),
-  NETLIFY_BLOBS_REGION: z.literal('ap-southeast-1').default('ap-southeast-1'),
 })
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>

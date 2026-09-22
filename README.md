@@ -11,7 +11,7 @@ Google Health API
         ↓
 Netlify Functions → provider / normalizer / repository
         ↓
-Netlify Blobs（ap-southeast-1）
+Netlify Blobs（預設 region：us-east-2）
         ↓
 Vue 3 Dashboard
 ```
@@ -48,7 +48,7 @@ npm install
 - `HEALTH_TOKEN_ENCRYPTION_KEY`：第四階段儲存 refresh token 時使用的獨立密鑰。
 - `NETLIFY_SITE_ID`：Netlify Project ID，供 Functions 明確連接 site-wide Blobs。
 - `NETLIFY_AUTH_TOKEN`：具備該 site 存取權的 Netlify Personal Access Token，只能存在 server environment。
-- `NETLIFY_BLOBS_REGION` 可省略；未設定時固定使用 `ap-southeast-1`。
+- Netlify Blobs 使用預設 region `us-east-2`，不需設定 region 環境變數。
 
 任何未以 `VITE_` 開頭的值都不可進入前端 bundle。Production secrets 應在 Netlify UI 設定，不要寫入 `netlify.toml`。
 
@@ -81,7 +81,7 @@ npm run build
 - 發布目錄：`web/dist`
 - Functions 目錄：`netlify/functions`
 - SPA fallback 已在 `netlify.toml` 設定。
-- Site-wide Blobs 每次都由唯一 factory 明確指定 `ap-southeast-1`。
+- Site-wide Blobs 每次都由唯一 factory 開啟，使用 Netlify 預設 region `us-east-2`。
 - Production Functions 以 `NETLIFY_SITE_ID` 與 `NETLIFY_AUTH_TOKEN` 明確建立 Blobs store；Personal Access Token 不得進入 browser、log 或 repository。
 - 自訂 Functions region 目前是 Netlify Pro／Enterprise 功能，因此 Legacy Free 使用該站點可用的預設 Functions region，不以升級方案作為正常運作條件。
 - 用量以舊帳號後台的 **Usage & billing** 為準，不套用新版 300 credits 假設。

@@ -21,7 +21,7 @@
 - 固定使用 Vite 7.3，因為它是目前受支援且相容已安裝 Node 22.17.1 的版本；`.nvmrc` 讓 Netlify 與日後本機修補版本使用 Node 22。
 - 固定使用 TypeScript 5.9，因為目前 `@vue/tsconfig` 版本要求 TypeScript 5.x。最初選用 TypeScript 7 時發生 peer dependency resolution 失敗，因此修正版本而不是使用 `--force`。
 - Netlify CLI 刻意不放入專案依賴。最新版造成 image-processing chain 的 5 個 high 弱點；npm 建議的降版又帶入 55 個舊弱點，包含 5 個 critical。Netlify 雲端 build 不需要 CLI，因此本機整合開發使用另外管理的 CLI，專案 lockfile 只保留實際 build 或測試需要的程式。
-- Netlify 官方文件指出自訂 Functions region 需要 Pro／Enterprise。Legacy Free 因此使用該站點可用的預設 Functions region，每次開啟 Blob store 仍明確指定 `ap-southeast-1`。
+- Netlify 官方文件指出自訂 Functions region 需要 Pro／Enterprise。Legacy Free 因此使用該站點可用的預設 Functions region；site-wide Blob store 使用預設 region `us-east-2`。
 
 ## 程式復用與擴充點
 

@@ -527,11 +527,11 @@ users/{userId}/runs/{yyyy}/{mm}/{timestamp}-{syncId}.json
 
 Site-wide store 固定使用同一 region。
 
-所有 `getStore()` 呼叫必須使用一致 region 設定。
+所有 `getStore()` 呼叫必須使用一致的 Blob region。
 
-V1 固定使用 Netlify Blobs `ap-southeast-1`。`NETLIFY_BLOBS_REGION=ap-southeast-1` 必須由唯一的 Blob store factory 讀取並傳入每一次 `getStore()`；不得依賴預設 `us-east-2`。變更 region 視為資料遷移，不得只改環境變數。
+V1 使用 Netlify Blobs 預設 region `us-east-2`。唯一的 Blob store factory 不傳入 `region`，讓所有 `getStore()` 使用同一預設值。變更 region 視為資料遷移，不得只改環境變數。
 
-Netlify Functions 原先偏好使用 Singapore（`sin`），但 Netlify 目前官方文件將自訂 Functions region 列為 Pro／Enterprise 功能，與本專案 Legacy Free 前提不相容。V1 在 Legacy Free 下沿用該站點可用的 Functions 預設 region，不把 `sin` 視為必要條件，也不為此升級方案；若日後方案已支援，再經確認後調整。Functions region 與 Blobs region 是兩個獨立設定，不得因 Functions 使用預設 region 而省略每次 `getStore()` 的 Blob region。
+Netlify Functions 原先偏好使用 Singapore（`sin`），但 Netlify 目前官方文件將自訂 Functions region 列為 Pro／Enterprise 功能，與本專案 Legacy Free 前提不相容。V1 在 Legacy Free 下沿用該站點可用的 Functions 預設 region，不把 `sin` 視為必要條件，也不為此升級方案；若日後方案已支援，再經確認後調整。Functions region 與 Blobs region 是兩個獨立設定；site-wide Blob store 使用預設 `us-east-2`。
 
 ---
 
@@ -1138,7 +1138,6 @@ OWNER_GOOGLE_EMAIL=
 
 HEALTH_TOKEN_ENCRYPTION_KEY=
 
-NETLIFY_BLOBS_REGION=
 ```
 
 如 Netlify runtime 自動提供 Blob 連線資訊，依官方 SDK/runtime 方式使用，不要自行把敏感 token 暴露到前端。

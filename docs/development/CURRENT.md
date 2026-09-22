@@ -17,7 +17,7 @@
 - 中文規格為最高依據；英文規格文件必須維持全英文。
 - V1 不提供正式 Demo 資料、手動健康資料、匯出、通知、心率、睡眠或 recovery。
 - 只允許擁有者使用 Google 登入；browser 不可提供 `userId` 或 Blob key。
-- Netlify Legacy Free：不得要求付費自訂 Functions region。Blobs 仍明確使用 `ap-southeast-1`。
+- Netlify Legacy Free：不得要求付費自訂 Functions region。Blobs 使用預設 region `us-east-2`。
 - Google Health 欄位與 scope 僅依官方 REST/API 文件實作；V1 不查詢心率、睡眠或 recovery。
 - 目前版本已移除 Google Fit 唯讀檢查功能；Google Fit 的獨立授權與比較功能尚未實作。
 
