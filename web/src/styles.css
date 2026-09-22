@@ -45,6 +45,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .range-selector button { border: 0; border-radius: .5rem; padding: .45rem .7rem; color: #81918c; background: transparent; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 750; }
 .range-selector button.active { color: #09231b; background: #82f0c4; }
 .month-navigation { display: flex; align-items: center; gap: .65rem; padding: .25rem; border: 1px solid #28363b; border-radius: .85rem; background: #0e161b; }
+.dashboard-period-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .55rem; }
 .month-navigation strong { min-width: 6.5rem; color: #e5f3ed; text-align: center; font-size: .9rem; }
 .month-navigation button { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 0; border-radius: .6rem; color: #b8e8d5; background: #17372e; cursor: pointer; font: inherit; font-size: 1.15rem; }
 .month-navigation button:disabled { color: #58645f; background: #18211f; cursor: default; }

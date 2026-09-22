@@ -2,7 +2,7 @@ import type { DashboardData, GoalSettings, HealthAnalysisData } from '@health/sh
 import { getJson, postJson, putJson } from './api'
 
 export interface HealthDataClient {
-  getDashboard(month: string): Promise<DashboardData>
+  getDashboard(range: '30D' | '90D' | '1Y' | 'month', month?: string): Promise<DashboardData>
   getAnalysis(): Promise<HealthAnalysisData>
   getSettings(): Promise<GoalSettings>
   saveSettings(settings: Pick<GoalSettings, 'dailyStepGoal' | 'weeklyExerciseMinutesGoal' | 'weightGoalKg'>): Promise<GoalSettings>
@@ -29,20 +29,57 @@ const dashboardRequests = new Map<string, Promise<DashboardData>>()
 let analysisCache: { data: HealthAnalysisData; expiresAt: number } | null = null
 let analysisRequest: Promise<HealthAnalysisData> | null = null
 
-function loadDashboard(month: string): Promise<DashboardData> {
-  const cached = dashboardCache.get(month)
+function loadDashboard(key: string, query: string): Promise<DashboardData> {
+  const cached = dashboardCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data)
-  const pending = dashboardRequests.get(month)
+  const pending = dashboardRequests.get(key)
   if (pending) return pending
 
-  const request = getJson<DashboardData>(`/.netlify/functions/dashboard-data?month=${month}`)
+  const request = getJson<DashboardData>(`/.netlify/functions/dashboard-data?${query}`)
     .then((data) => {
-      dashboardCache.set(month, { data, expiresAt: Date.now() + DASHBOARD_CACHE_MS })
+      dashboardCache.set(key, { data, expiresAt: Date.now() + DASHBOARD_CACHE_MS })
       return data
     })
-    .finally(() => dashboardRequests.delete(month))
-  dashboardRequests.set(month, request)
+    .finally(() => dashboardRequests.delete(key))
+  dashboardRequests.set(key, request)
   return request
+}
+
+async function loadDashboardPeriod(range: '30D' | '90D' | '1Y' | 'month', month?: string): Promise<DashboardData> {
+  if (range === 'month') {
+    if (!month) throw new Error('月份不可為空。')
+    return loadDashboard(`month:${month}`, `month=${month}`)
+  }
+  if (range === '30D') return loadDashboard('range:30D', 'range=30D')
+
+  // Keep each Netlify invocation bounded to one calendar month. Two concurrent
+  // requests shorten the overall wait without issuing a large backend query.
+  const now = new Date()
+  const endMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1))
+  const startMonth = new Date(Date.UTC(now.getFullYear() - (range === '1Y' ? 1 : 0), now.getMonth() - (range === '1Y' ? 0 : 3), 1))
+  const months: string[] = []
+  for (const cursor = new Date(startMonth); cursor <= endMonth; cursor.setUTCMonth(cursor.getUTCMonth() + 1)) {
+    months.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`)
+  }
+  const results: DashboardData[] = []
+  for (let index = 0; index < months.length; index += 2) {
+    results.push(...await Promise.all(months.slice(index, index + 2).map((value) =>
+      loadDashboard(`month:${value}`, `month=${value}`),
+    )))
+  }
+  const cutoff = new Date(now)
+  cutoff.setDate(cutoff.getDate() - (range === '90D' ? 89 : 364))
+  const cutoffDate = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const summaries = results.flatMap((result) => result.summaries)
+    .filter((summary) => summary.date >= cutoffDate && summary.date <= today)
+    .sort((left, right) => left.date.localeCompare(right.date))
+  const timestamps = results.map((result) => result.lastUpdatedAt).filter((value): value is string => value !== null)
+  return {
+    availability: summaries.length ? 'ready' : 'empty',
+    lastUpdatedAt: timestamps.length ? timestamps.sort()[timestamps.length - 1]! : null,
+    summaries,
+  }
 }
 
 function clearDashboardCache(): void {
@@ -51,7 +88,7 @@ function clearDashboardCache(): void {
 }
 
 export const healthDataClient: HealthDataClient = {
-  getDashboard: (month: string) => loadDashboard(month),
+  getDashboard: (range, month) => loadDashboardPeriod(range, month),
   getAnalysis() {
     if (analysisCache && analysisCache.expiresAt > Date.now()) return Promise.resolve(analysisCache.data)
     if (analysisRequest) return analysisRequest

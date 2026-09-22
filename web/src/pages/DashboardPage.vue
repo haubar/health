@@ -8,13 +8,16 @@ import HealthLoading from '../components/HealthLoading.vue'
 import TrendChart from '../components/TrendChart.vue'
 
 const auth = useAuthStore()
+type DashboardPeriod = '30D' | '90D' | '1Y' | 'month'
 function currentMonthValue(): string {
   const date = new Date()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 const month = ref(currentMonthValue())
+const period = ref<DashboardPeriod>('30D')
 const currentMonth = currentMonthValue()
 const monthLabel = computed(() => new Intl.DateTimeFormat('zh-TW', { year: 'numeric', month: 'long', timeZone: 'Asia/Taipei' }).format(new Date(`${month.value}-01T00:00:00+08:00`)))
+const periodLabel = computed(() => period.value === 'month' ? monthLabel.value : ({ '30D': '近 30 天', '90D': '近 90 天', '1Y': '近一年' } as const)[period.value])
 const data = ref<DashboardData>(emptyDashboardData)
 const analysis = ref<HealthAnalysisData>({
   weeklySummary: null, insights: [], timeline: [],
@@ -29,8 +32,14 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    data.value = await healthDataClient.getDashboard(month.value)
-    analysis.value = await healthDataClient.getAnalysis().catch(() => analysis.value)
+    const [dashboardData, analysisData] = await Promise.all([
+      healthDataClient.getDashboard(period.value, month.value),
+      healthDataClient.getAnalysis().catch(() => analysis.value),
+    ])
+    if (currentRequestId === requestId) {
+      data.value = dashboardData
+      analysis.value = analysisData
+    }
   } catch {
     if (currentRequestId === requestId) loadError.value = '健康資料暫時無法載入，請稍後再試。'
   } finally {
@@ -38,7 +47,7 @@ async function load() {
   }
 }
 onMounted(load)
-watch(month, load)
+watch([period, month], load)
 function shiftMonth(offset: number): void {
   const [year, monthNumber] = month.value.split('-').map(Number)
   const date = new Date(Date.UTC(year!, monthNumber! - 1 + offset, 1))
@@ -86,11 +95,18 @@ const nextStep = computed(() => {
     </header>
 
     <div class="dashboard-toolbar">
-      <span class="section-label">體重趨勢看近 90 天；下方活動資料可逐月瀏覽</span>
-      <div class="month-navigation" aria-label="切換月份">
-        <button type="button" aria-label="查看前一個月" @click="shiftMonth(-1)">←</button>
-        <strong>{{ monthLabel }}</strong>
-        <button type="button" aria-label="查看下一個月" :disabled="month >= currentMonth" @click="shiftMonth(1)">→</button>
+      <span class="section-label">體重看近 90 天；活動資料可按區間或逐月查看</span>
+      <div class="dashboard-period-controls">
+        <div class="range-selector" role="group" aria-label="活動資料範圍">
+          <button v-for="option in (['30D', '90D', '1Y', 'month'] as const)" :key="option" type="button" :class="{ active: period === option }" @click="period = option">
+            {{ option === 'month' ? '單月' : option === '1Y' ? '1 年' : option === '90D' ? '90 天' : '30 天' }}
+          </button>
+        </div>
+        <div v-if="period === 'month'" class="month-navigation" aria-label="切換月份">
+          <button type="button" aria-label="查看前一個月" @click="shiftMonth(-1)">←</button>
+          <strong>{{ monthLabel }}</strong>
+          <button type="button" aria-label="查看下一個月" :disabled="month >= currentMonth" @click="shiftMonth(1)">→</button>
+        </div>
       </div>
     </div>
     <HealthLoading v-if="loading" />
@@ -157,7 +173,7 @@ const nextStep = computed(() => {
         </article>
       </section>
       <div class="dashboard-grid">
-        <TrendChart v-if="hasActivity" title="步數趨勢" :range="'30D'" :points="stepPoints" unit="步" />
+        <TrendChart v-if="hasActivity" :title="`${periodLabel}步數趨勢`" :range="period === '1Y' ? '1Y' : period === '90D' ? '90D' : '30D'" :points="stepPoints" unit="步" />
       </div>
       <HealthStateCard v-if="data.availability === 'empty' && !hasActivity && analysis.weightLoss.latestKg === null" state="empty" title="這段期間還沒有同步資料" description="完成 Google Health 連線與同步後，有實際資料的區塊才會出現。" />
     </template>
