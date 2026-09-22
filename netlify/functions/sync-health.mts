@@ -1,9 +1,12 @@
 import type { Config } from '@netlify/functions'
+import { aggregateDailyHealthRecords } from '@health/shared'
 import { decryptSecret } from '../lib/crypto'
 import { getServerEnvironment } from '../lib/env'
+import { floorToHealthDay, healthDate, nextHealthDayStart } from '../lib/health-day'
 import { GoogleHealthProvider } from '../lib/google-health'
 import { jsonFailure, jsonSuccess } from '../lib/response'
 import { AuthRepository } from '../lib/repositories/auth-repository'
+import { DashboardSummaryRepository, emptyDashboardSummary } from '../lib/repositories/dashboard-summary-repository'
 import { HealthRecordRepository } from '../lib/repositories/health-record-repository'
 import { SyncRepository } from '../lib/repositories/sync-repository'
 import { readSession } from '../lib/session'
@@ -41,8 +44,9 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   const legacyNextEndTime = previousState?.lastCompletedAt && previousState.lastStartedAt
     ? new Date(Date.parse(previousState.lastStartedAt) - BATCH_COUNT * BATCH_DAYS * 24 * 60 * 60 * 1000).toISOString()
     : null
+  const cursorEndTime = previousState?.nextEndTime ?? previousState?.runEndTime ?? legacyNextEndTime
   const runEndTime = batch === 0
-    ? previousState?.nextEndTime ?? legacyNextEndTime ?? startedAt
+    ? cursorEndTime ? floorToHealthDay(new Date(cursorEndTime)).toISOString() : nextHealthDayStart(new Date(startedAt)).toISOString()
     : previousState!.runEndTime ?? startedAt
   const nextEndTime = batch === 0 ? previousState?.nextEndTime ?? legacyNextEndTime : previousState!.nextEndTime ?? null
   const previousCount = batch === 0 ? 0 : previousState!.recordCount
@@ -72,6 +76,16 @@ const fetchHandler = async (request: Request): Promise<Response> => {
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       ...writeResult,
+    })
+    const summaryRepository = new DashboardSummaryRepository()
+    const summaryDate = healthDate(start)
+    const summary = aggregateDailyHealthRecords(records).find((item) => item.date === summaryDate)
+    let latestRecordTime = Number.NEGATIVE_INFINITY
+    for (const record of records) latestRecordTime = Math.max(latestRecordTime, Date.parse(record.startTime))
+    await summaryRepository.set(user.id, summaryDate, {
+      summary: summary ?? emptyDashboardSummary(summaryDate),
+      lastUpdatedAt: Number.isFinite(latestRecordTime) ? new Date(latestRecordTime).toISOString() : null,
+      hasRecords: records.length > 0,
     })
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1

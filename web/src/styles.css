@@ -44,6 +44,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .range-selector { display: flex; gap: .35rem; padding: .25rem; border: 1px solid #28363b; border-radius: .75rem; background: #0e161b; }
 .range-selector button { border: 0; border-radius: .5rem; padding: .45rem .7rem; color: #81918c; background: transparent; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 750; }
 .range-selector button.active { color: #09231b; background: #82f0c4; }
+.month-navigation { display: flex; align-items: center; gap: .65rem; padding: .25rem; border: 1px solid #28363b; border-radius: .85rem; background: #0e161b; }
+.month-navigation strong { min-width: 6.5rem; color: #e5f3ed; text-align: center; font-size: .9rem; }
+.month-navigation button { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 0; border-radius: .6rem; color: #b8e8d5; background: #17372e; cursor: pointer; font: inherit; font-size: 1.15rem; }
+.month-navigation button:disabled { color: #58645f; background: #18211f; cursor: default; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .9rem; }
 .metric-card { min-height: 7.5rem; padding: 1.1rem; border: 1px solid #27343a; border-radius: 1rem; background: #10181e; }
 .metric-card p { margin: 0 0 .8rem; color: #8b9b96; font-size: .78rem; }
@@ -59,6 +63,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .state-card p { margin: 0; color: #92a29d; line-height: 1.65; }
 .state-icon { display: grid; place-items: center; flex: 0 0 auto; width: 2.7rem; height: 2.7rem; border-radius: .85rem; background: #173f34; color: #82f0c4; font-size: 1.25rem; font-weight: 800; }
 .state-card[data-state="error"] .state-icon { color: #ffd4a6; background: #3b2a1d; }
+.health-loading { display: grid; justify-items: center; gap: 1rem; min-height: 20rem; padding: 2.25rem 1.5rem; overflow: hidden; border: 1px solid #285044; border-radius: 1.25rem; background: radial-gradient(ellipse at 50% 30%, rgba(31, 104, 77, .2), transparent 54%), linear-gradient(145deg, #121e21, #0d1419); text-align: center; }
+.health-loader-art { position: relative; display: grid; place-items: center; width: 8rem; height: 8rem; }
+.health-loader-orbit { position: absolute; inset: .25rem; border: 2px solid rgba(130, 240, 196, .13); border-top-color: #82f0c4; border-right-color: rgba(130, 240, 196, .55); border-radius: 50%; animation: health-orbit 1.8s linear infinite; }
+.health-loader-runner { width: 6.5rem; height: 6.5rem; overflow: visible; }
+.health-loader-pulse { stroke: #82f0c4; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 115; stroke-dashoffset: 115; animation: health-pulse 1.8s ease-in-out infinite; opacity: .8; }
+.health-loader-head { fill: #dffdf1; transform-box: fill-box; transform-origin: center; animation: health-bob .8s ease-in-out infinite alternate; }
+.health-loader-body { stroke: #dffdf1; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; animation: health-run .8s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 55% 55%; }
+.health-loading-copy h2 { margin: 0 0 .45rem; font-size: 1.1rem; }
+.health-loading-copy p { margin: 0; color: #92a29d; font-size: .9rem; }
+.health-loading-track { width: min(15rem, 70vw); height: .25rem; overflow: hidden; border-radius: 999px; background: #253630; }
+.health-loading-track span { display: block; width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #34b989, #a6f8d3); animation: health-loading 1.4s ease-in-out infinite; }
+@keyframes health-orbit { to { transform: rotate(360deg); } }
+@keyframes health-pulse { 0%, 12% { stroke-dashoffset: 115; opacity: .3; } 55%, 78% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -115; opacity: .3; } }
+@keyframes health-run { from { transform: translateY(-1px) rotate(-3deg); } to { transform: translateY(1px) rotate(3deg); } }
+@keyframes health-bob { from { transform: translateY(-1px); } to { transform: translateY(1px); } }
+@keyframes health-loading { 0% { transform: translateX(-110%); } 100% { transform: translateX(370%); } }
+@media (prefers-reduced-motion: reduce) { .health-loader-orbit, .health-loader-pulse, .health-loader-head, .health-loader-body, .health-loading-track span { animation: none; } .health-loader-pulse { stroke-dashoffset: 0; } .health-loading-track span { width: 60%; } }
 .settings-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1.5rem; }
 .sync-card { border-color: #275849; }
 .sync-button { border: 0; cursor: pointer; font: inherit; }

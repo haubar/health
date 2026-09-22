@@ -1,8 +1,8 @@
-import type { DashboardData, DashboardRange } from '@health/shared'
+import type { DashboardData } from '@health/shared'
 import { getJson, postJson } from './api'
 
 export interface HealthDataClient {
-  getDashboard(range: string): Promise<DashboardData>
+  getDashboard(month: string): Promise<DashboardData>
   sync(onProgress?: (progress: { batch: number; batchCount: number; recordCount: number }) => void): Promise<{ lastCompletedAt: string; recordCount: number; windowStart: string; windowEnd: string }>
 }
 
@@ -24,19 +24,19 @@ const DASHBOARD_CACHE_MS = 5 * 60 * 1000
 const dashboardCache = new Map<string, { data: DashboardData; expiresAt: number }>()
 const dashboardRequests = new Map<string, Promise<DashboardData>>()
 
-function loadDashboard(range: DashboardRange): Promise<DashboardData> {
-  const cached = dashboardCache.get(range)
+function loadDashboard(month: string): Promise<DashboardData> {
+  const cached = dashboardCache.get(month)
   if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data)
-  const pending = dashboardRequests.get(range)
+  const pending = dashboardRequests.get(month)
   if (pending) return pending
 
-  const request = getJson<DashboardData>(`/.netlify/functions/dashboard-data?range=${range}`)
+  const request = getJson<DashboardData>(`/.netlify/functions/dashboard-data?month=${month}`)
     .then((data) => {
-      dashboardCache.set(range, { data, expiresAt: Date.now() + DASHBOARD_CACHE_MS })
+      dashboardCache.set(month, { data, expiresAt: Date.now() + DASHBOARD_CACHE_MS })
       return data
     })
-    .finally(() => dashboardRequests.delete(range))
-  dashboardRequests.set(range, request)
+    .finally(() => dashboardRequests.delete(month))
+  dashboardRequests.set(month, request)
   return request
 }
 
@@ -45,7 +45,7 @@ function clearDashboardCache(): void {
 }
 
 export const healthDataClient: HealthDataClient = {
-  getDashboard: (range: DashboardRange) => loadDashboard(range),
+  getDashboard: (month: string) => loadDashboard(month),
   async sync(onProgress) {
     clearDashboardCache()
     let batchCount = 0

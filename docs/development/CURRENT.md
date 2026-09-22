@@ -34,4 +34,4 @@
 - 第三階段最後一次驗證：`npm test` 通過 4 個測試檔、15 項測試；`npm run build` 通過。
 - 第四階段：Functions/shared typecheck 通過；本機 Node.js 18 無法執行要求 Node.js 20.19+ 的 Vite build，需在符合專案 engines 的 Node 版本重跑。
 - 第五階段：同步每次處理 30 天、以每日批次寫入；完成後再次執行會從上次最早日期繼續往前補歷史資料，並以 record key 去重保存。
-- 第六階段：Dashboard API 會讀取登入者保存的正式 records，依 Asia/Taipei 日期聚合；前端不再使用 fixture，無資料的卡片與圖表保持隱藏。已加入首次同步入口，並在 Node.js 22.17.1 完成完整測試與 production build。
+- 第六階段：Dashboard 以月份查詢，使用每日摘要與月結果快取，避免 90D／1Y 單次讀取超過 Netlify 30 秒限制；圖表可逐月往前瀏覽，載入時顯示健康／運動動畫。未摘要化日期才回查 records。

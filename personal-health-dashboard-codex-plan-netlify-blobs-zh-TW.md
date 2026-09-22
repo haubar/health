@@ -756,7 +756,9 @@ Exercise Minutes
 Calories
 ```
 
-時間範圍：
+趨勢以月份為單位查詢和切換；每次讀取一個月，避免單一 Functions request 一次讀取 90 天或 1 年原始 records 而超過 Netlify 30 秒限制。日摘要完整後，API 直接讀取 daily documents；尚未摘要化的日期才回查原始 records。
+
+早期範圍選項（逐月瀏覽取代一次讀取整段範圍）：
 
 ```text
 7D
