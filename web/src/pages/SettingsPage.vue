@@ -1,21 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { healthDataClient } from '../services/health-data'
 
 const auth = useAuthStore()
-const hasData = ref<boolean | null>(null)
 const syncing = ref(false)
 const syncMessage = ref('')
-
-onMounted(async () => {
-  try {
-    const data = await healthDataClient.getDashboard('1Y')
-    hasData.value = data.availability !== 'empty'
-  } catch {
-    hasData.value = null
-  }
-})
 
 async function startSync(): Promise<void> {
   syncing.value = true
@@ -24,7 +14,6 @@ async function startSync(): Promise<void> {
     const result = await healthDataClient.sync(({ batch, batchCount, recordCount }) => {
       syncMessage.value = `正在讀取第 ${batch}/${batchCount} 天，已取得 ${recordCount} 筆資料…`
     })
-    hasData.value = result.recordCount > 0
     syncMessage.value = result.recordCount > 0
       ? `已同步 ${result.recordCount} 筆資料。請返回健康總覽查看。`
         : '同步完成，但 Google Health 目前沒有可用資料。'
@@ -54,13 +43,13 @@ async function startSync(): Promise<void> {
       <span class="connection-state">已驗證</span>
     </article>
 
-    <article v-if="hasData !== null" class="settings-card sync-card">
+    <article class="settings-card sync-card">
       <div>
         <p class="field-label">Google Health</p>
-        <p>{{ hasData ? '重新讀取最近 30 天的健康資料。' : '目前尚未同步健康資料。' }}</p>
+        <p>讀取最近 30 天的健康資料。</p>
       </div>
       <button class="primary-action sync-button" type="button" :disabled="syncing" @click="startSync">
-        {{ syncing ? '同步中…' : hasData ? '重新同步' : '開始同步' }}
+        {{ syncing ? '同步中…' : '同步資料' }}
       </button>
     </article>
     <p v-if="syncMessage" class="status-message">{{ syncMessage }}</p>
