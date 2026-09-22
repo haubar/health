@@ -55,9 +55,9 @@ export class HealthRecordRepository {
       months.push(`${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`)
     }
     const prefixes = months.flatMap((month) => RECORD_TYPES.map((type) => blobKeys.recordMonthPrefix(userId, type, month)))
-    const keyGroups = await mapConcurrent(prefixes, 12, (prefix) => this.store.list(prefix))
+    const keyGroups = await mapConcurrent(prefixes, 24, (prefix) => this.store.list(prefix))
     const keys = keyGroups.flat()
-    const records = await mapConcurrent(keys, 25, (key) => this.documents.get(key))
+    const records = await mapConcurrent(keys, 96, (key) => this.documents.get(key))
     return records.filter((record): record is HealthRecord => record !== null).filter((record) => {
       const time = Date.parse(record.startTime)
       return time >= start.getTime() && time < end.getTime()
