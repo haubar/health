@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { emptyDashboardData, healthDataClient } from '../services/health-data'
-import type { DashboardData } from '@health/shared'
+import type { DashboardData, HealthAnalysisData } from '@health/shared'
 import HealthStateCard from '../components/HealthStateCard.vue'
 import HealthLoading from '../components/HealthLoading.vue'
 import MetricCard from '../components/MetricCard.vue'
@@ -17,6 +17,7 @@ const month = ref(currentMonthValue())
 const currentMonth = currentMonthValue()
 const monthLabel = computed(() => new Intl.DateTimeFormat('zh-TW', { year: 'numeric', month: 'long', timeZone: 'Asia/Taipei' }).format(new Date(`${month.value}-01T00:00:00+08:00`)))
 const data = ref<DashboardData>(emptyDashboardData)
+const analysis = ref<HealthAnalysisData>({ score: null, scoreDate: null, weeklySummary: null, insights: [], timeline: [] })
 const loading = ref(true)
 const loadError = ref('')
 let requestId = 0
@@ -26,6 +27,7 @@ async function load() {
   loadError.value = ''
   try {
     data.value = await healthDataClient.getDashboard(month.value)
+    analysis.value = await healthDataClient.getAnalysis().catch(() => analysis.value)
   } catch {
     if (currentRequestId === requestId) loadError.value = '健康資料暫時無法載入，請稍後再試。'
   } finally {
@@ -73,6 +75,42 @@ const weightPoints = computed(() => data.value.summaries.flatMap((day) => day.we
         <MetricCard v-if="hasActivity" label="最新活動時間" :value="latest?.activeMinutes ?? null" unit="分鐘" />
         <MetricCard v-if="hasActivity" label="最新運動時間" :value="latest?.exerciseMinutes ?? null" unit="分鐘" />
       </div>
+      <section v-if="analysis.score?.score !== null && analysis.score" class="analysis-overview">
+        <div class="analysis-heading">
+          <div>
+            <p class="eyebrow">HEALTH SCORE</p>
+            <h2>{{ analysis.score.score }}<small> / 100</small></h2>
+            <p>資料日期：{{ analysis.scoreDate }} · 資料完整度 {{ Math.round(analysis.score.completeness * 100) }}%</p>
+            <p class="score-note">個人活動與身體趨勢參考，不是醫療評估。</p>
+          </div>
+          <div class="score-details">
+            <span>活動 {{ analysis.score.activity.score ?? '—' }}</span>
+            <span>身體 {{ analysis.score.body.score ?? '—' }}</span>
+          </div>
+        </div>
+      </section>
+      <section v-if="analysis.weeklySummary && (analysis.weeklySummary.averageSteps !== null || analysis.weeklySummary.totalExerciseMinutes !== null || analysis.weeklySummary.weightTrendKg !== null || analysis.weeklySummary.averageHealthScore !== null)" class="weekly-card">
+        <div class="analysis-heading">
+          <div>
+            <p class="eyebrow">PREVIOUS WEEK</p>
+            <h2>每週摘要</h2>
+            <p>{{ analysis.weeklySummary.weekStart }} 起 · 週一至週日</p>
+          </div>
+          <div class="weekly-metrics">
+            <span>平均步數 <strong>{{ analysis.weeklySummary.averageSteps === null ? '—' : Math.round(analysis.weeklySummary.averageSteps).toLocaleString() }}</strong></span>
+            <span>運動時間 <strong>{{ analysis.weeklySummary.totalExerciseMinutes === null ? '—' : `${Math.round(analysis.weeklySummary.totalExerciseMinutes)} 分鐘` }}</strong></span>
+            <span>體重變化 <strong>{{ analysis.weeklySummary.weightTrendKg === null ? '—' : `${analysis.weeklySummary.weightTrendKg > 0 ? '+' : ''}${analysis.weeklySummary.weightTrendKg.toFixed(1)} kg` }}</strong></span>
+            <span>平均 Health Score <strong>{{ analysis.weeklySummary.averageHealthScore ?? '—' }}</strong></span>
+            <span>步數較前週 <strong>{{ analysis.weeklySummary.weekOverWeek.averageSteps === null ? '—' : `${analysis.weeklySummary.weekOverWeek.averageSteps > 0 ? '+' : ''}${Math.round(analysis.weeklySummary.weekOverWeek.averageSteps).toLocaleString()}` }}</strong></span>
+          </div>
+        </div>
+      </section>
+      <section v-if="analysis.insights.length" class="insight-preview">
+        <header><h2>近期洞察</h2><RouterLink to="/insights">查看全部 →</RouterLink></header>
+        <article v-for="insight in analysis.insights.slice(0, 2)" :key="insight.id" class="insight-item">
+          <strong>{{ insight.title }}</strong><p>{{ insight.description }}</p>
+        </article>
+      </section>
       <div class="dashboard-grid">
         <TrendChart v-if="hasActivity" title="步數趨勢" :range="'30D'" :points="stepPoints" unit="步" />
         <TrendChart v-if="hasBody" title="體重趨勢" :range="'30D'" :points="weightPoints" unit="kg" />

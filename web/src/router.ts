@@ -17,15 +17,8 @@ const protectedRoutes: RouteRecordRaw[] = [
   { path: '/activity', name: 'activity', component: () => import('./pages/ActivityPage.vue'), meta: { requiresAuth: true } },
   { path: '/body', name: 'body', component: () => import('./pages/BodyPage.vue'), meta: { requiresAuth: true } },
   { path: '/workouts', name: 'workouts', component: () => import('./pages/WorkoutsPage.vue'), meta: { requiresAuth: true } },
-  ...['insights', 'timeline'].map(
-    (section): RouteRecordRaw => ({
-      path: `/${section}`,
-      name: section,
-      component: () => import('./pages/DataUnavailablePage.vue'),
-      props: { section },
-      meta: { requiresAuth: true },
-    }),
-  ),
+  { path: '/insights', name: 'insights', component: () => import('./pages/InsightsPage.vue'), meta: { requiresAuth: true } },
+  { path: '/timeline', name: 'timeline', component: () => import('./pages/TimelinePage.vue'), meta: { requiresAuth: true } },
 ]
 
 export const router = createRouter({

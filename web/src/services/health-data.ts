@@ -1,8 +1,9 @@
-import type { DashboardData } from '@health/shared'
+import type { DashboardData, HealthAnalysisData } from '@health/shared'
 import { getJson, postJson } from './api'
 
 export interface HealthDataClient {
   getDashboard(month: string): Promise<DashboardData>
+  getAnalysis(): Promise<HealthAnalysisData>
   sync(onProgress?: (progress: { batch: number; batchCount: number; recordCount: number }) => void): Promise<{ lastCompletedAt: string; recordCount: number; windowStart: string; windowEnd: string }>
 }
 
@@ -23,6 +24,8 @@ interface SyncBatchResponse {
 const DASHBOARD_CACHE_MS = 5 * 60 * 1000
 const dashboardCache = new Map<string, { data: DashboardData; expiresAt: number }>()
 const dashboardRequests = new Map<string, Promise<DashboardData>>()
+let analysisCache: { data: HealthAnalysisData; expiresAt: number } | null = null
+let analysisRequest: Promise<HealthAnalysisData> | null = null
 
 function loadDashboard(month: string): Promise<DashboardData> {
   const cached = dashboardCache.get(month)
@@ -42,10 +45,22 @@ function loadDashboard(month: string): Promise<DashboardData> {
 
 function clearDashboardCache(): void {
   dashboardCache.clear()
+  analysisCache = null
 }
 
 export const healthDataClient: HealthDataClient = {
   getDashboard: (month: string) => loadDashboard(month),
+  getAnalysis() {
+    if (analysisCache && analysisCache.expiresAt > Date.now()) return Promise.resolve(analysisCache.data)
+    if (analysisRequest) return analysisRequest
+    analysisRequest = getJson<HealthAnalysisData>('/.netlify/functions/health-analysis')
+      .then((data) => {
+        analysisCache = { data, expiresAt: Date.now() + DASHBOARD_CACHE_MS }
+        return data
+      })
+      .finally(() => { analysisRequest = null })
+    return analysisRequest
+  },
   async sync(onProgress) {
     clearDashboardCache()
     let batchCount = 0

@@ -45,6 +45,29 @@ export type TimelineEvent = {
   description: string
 }
 
+export type WeeklyHealthSummary = {
+  weekStart: string
+  weekEndExclusive: string
+  averageSteps: number | null
+  totalExerciseMinutes: number | null
+  weightTrendKg: number | null
+  averageHealthScore: number | null
+  weekOverWeek: {
+    averageSteps: number | null
+    exerciseMinutes: number | null
+    healthScore: number | null
+  }
+  generatedAt: string
+}
+
+export type HealthAnalysisData = {
+  score: OverallScore | null
+  scoreDate: string | null
+  weeklySummary: WeeklyHealthSummary | null
+  insights: HealthInsight[]
+  timeline: TimelineEvent[]
+}
+
 type NumericRecord = HealthRecord & { value: number }
 
 const DEFAULT_SETTINGS: GoalSettings = {
@@ -266,8 +289,11 @@ export function generateInsights(
 ): HealthInsight[] {
   const resolved = { ...DEFAULT_SETTINGS, ...settings }
   const recent = summaries.slice(-7)
-  const baseline = personalBaseline(summaries, 'steps', 30)
-  const current = mean(recent.map((summary) => summary.steps))
+  const baselineDays = summaries.slice(0, -7).slice(-30)
+  const baselineValues = baselineDays.flatMap((summary) => summary.steps === null ? [] : [summary.steps])
+  const recentValues = recent.flatMap((summary) => summary.steps === null ? [] : [summary.steps])
+  const baseline = baselineValues.length >= 14 ? mean(baselineValues) : null
+  const current = recentValues.length >= 4 ? mean(recentValues) : null
   const insights: HealthInsight[] = []
 
   if (baseline !== null && current !== null && current > baseline * 1.1) {
@@ -310,6 +336,7 @@ export function generateTimeline(
   const resolved = { ...DEFAULT_SETTINGS, ...settings }
   const events: TimelineEvent[] = []
   let streak = 0
+  let exerciseStreak = 0
   for (const summary of summaries) {
     if (summary.steps !== null && summary.steps >= resolved.dailyStepGoal) streak += 1
     else streak = 0
@@ -320,6 +347,34 @@ export function generateTimeline(
         date: summary.date,
         title: `連續 ${streak} 天達成活動目標`,
         description: '依照每日步數目標與實際紀錄產生。',
+      })
+    }
+    if ((summary.exerciseMinutes ?? 0) > 0) exerciseStreak += 1
+    else exerciseStreak = 0
+    if (exerciseStreak === 7 || (exerciseStreak > 7 && exerciseStreak % 7 === 0)) {
+      events.push({
+        id: `exercise-streak-${summary.date}-${exerciseStreak}`,
+        type: 'exercise_milestone',
+        date: summary.date,
+        title: `連續 ${exerciseStreak} 天有運動紀錄`,
+        description: '依照每日實際同步的運動紀錄計算。',
+      })
+    }
+  }
+
+  const weighted = summaries.flatMap((summary) => summary.weightKg === null ? [] : [{ date: summary.date, value: summary.weightKg }])
+  for (let index = 6; index < weighted.length; index += 1) {
+    const recent = weighted.slice(index - 6, index + 1)
+    const baseline = weighted.slice(Math.max(0, index - 89), index)
+    if (baseline.length < 7) continue
+    const recentAverage = mean(recent.map((item) => item.value))!
+    if (recentAverage < Math.min(...baseline.map((item) => item.value))) {
+      events.push({
+        id: `weight-milestone-${recent[6]!.date}`,
+        type: 'weight_milestone',
+        date: recent[6]!.date,
+        title: '7 次量測平均體重創近期新低',
+        description: '最近 7 次體重量測的平均值低於此前可用量測紀錄。',
       })
     }
   }

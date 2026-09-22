@@ -58,17 +58,32 @@ export async function runDailyHealthAnalysis(): Promise<void> {
       },
     })))
 
-    const analysisStart = healthDayStart(shiftHealthDate(today, -29))
-    const recentDays = healthDatesInRange(analysisStart, healthDayStart(shiftHealthDate(today, 1)))
-    const storedDays = await summaryRepository.getMany(userId, recentDays)
-    const available = storedDays.flatMap((day) => day?.hasRecords ? [day.summary] : []).sort((a, b) => a.date.localeCompare(b.date))
+    const timelineDays = healthDatesInRange(healthDayStart(shiftHealthDate(today, -89)), healthDayStart(shiftHealthDate(today, 1)))
+    const storedDays = await summaryRepository.getMany(userId, timelineDays)
+    const available = storedDays.map((day, index) => day?.summary ?? emptyDashboardSummary(timelineDays[index]!))
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const scoreSummaries = available.filter((summary) => summary.date >= shiftHealthDate(today, -29))
+    const bodySummaries = available.filter((summary) => summary.date >= shiftHealthDate(today, -89))
     const settings = await new SettingsRepository().get(userId)
     const analyticsStore = createBlobStore('health-analytics')
     const runAt = new Date().toISOString()
     for (const date of affectedDates.filter((day) => day < today)) {
-      const throughDate = available.filter((summary) => summary.date <= date)
-      const activityScore = calculateActivityScore(throughDate, settings ?? undefined)
-      const bodyScore = calculateBodyScore(throughDate, settings ?? undefined)
+      const throughDate = scoreSummaries.filter((summary) => summary.date <= date)
+      const rawActivityScore = calculateActivityScore(throughDate, settings ?? undefined)
+      const activityDays = throughDate.filter((summary) => summary.steps !== null || summary.exerciseMinutes !== null || summary.activeMinutes !== null).length
+      const activityScore = {
+        ...rawActivityScore,
+        calculable: rawActivityScore.calculable && activityDays >= 7,
+        details: { ...rawActivityScore.details, observedDays: activityDays, minimumObservedDays: 7 },
+      }
+      const throughBodyDate = bodySummaries.filter((summary) => summary.date <= date)
+      const bodyObservations = throughBodyDate.filter((summary) => summary.weightKg !== null || summary.bodyFatPercentage !== null).length
+      const rawBodyScore = calculateBodyScore(throughBodyDate, settings ?? undefined)
+      const bodyScore = {
+        ...rawBodyScore,
+        calculable: rawBodyScore.calculable && bodyObservations >= 3,
+        details: { ...rawBodyScore.details, observedMeasurements: bodyObservations, minimumMeasurements: 3 },
+      }
       const overallScore = calculateOverallScore(activityScore, bodyScore)
       await analyticsStore.setJson(blobKeys.score(userId, date), {
         date, activityScore, bodyScore, overallScore,
@@ -76,11 +91,14 @@ export async function runDailyHealthAnalysis(): Promise<void> {
         details: { activity: activityScore.details, body: bodyScore.details },
         algorithmVersion: overallScore.algorithmVersion,
       })
-      await analyticsStore.setJson(blobKeys.insight(userId, date), generateInsights(throughDate, settings ?? undefined, runAt))
+      const insightSummaries = available.filter((summary) => summary.date <= date).slice(-37)
+      await analyticsStore.setJson(blobKeys.insight(userId, date), { date, insights: generateInsights(insightSummaries, settings ?? undefined, runAt) })
     }
     const events = generateTimeline(available, settings ?? undefined)
-    const month = today.slice(0, 7)
-    await analyticsStore.setJson(blobKeys.timelineMonth(userId, month), events.filter((event) => event.date.startsWith(month)))
+    const timelineMonths = [...new Set([...timelineDays.map((date) => date.slice(0, 7)), today.slice(0, 7)])]
+    for (const month of timelineMonths) {
+      await analyticsStore.setJson(blobKeys.timelineMonth(userId, month), events.filter((event) => event.date.startsWith(month)))
+    }
     await authRepository.set(userId, { ...auth, lastSyncAt: runAt, updatedAt: runAt })
     const syncRepository = new SyncRepository()
     const prior = await syncRepository.get(userId)
@@ -120,7 +138,8 @@ export async function runWeeklyHealthSummary(): Promise<void> {
     const priorDates = healthDatesInRange(healthDayStart(priorWeekStart), healthDayStart(previousWeekStart))
     const prior = (await summaryRepository.getMany(userId, priorDates)).flatMap((day) => day?.hasRecords ? [day.summary] : [])
     const averageSteps = mean(previous.map((day) => day.steps))
-    const totalExerciseMinutes = previous.reduce((sum, day) => sum + (day.exerciseMinutes ?? 0), 0)
+    const exerciseValues = previous.flatMap((day) => day.exerciseMinutes === null ? [] : [day.exerciseMinutes])
+    const totalExerciseMinutes = exerciseValues.length ? exerciseValues.reduce((sum, value) => sum + value, 0) : null
     const weights = previous.flatMap((day) => day.weightKg === null ? [] : [day.weightKg])
     const previousScoreDates = dates.map((date) => blobKeys.score(userId, date))
     const priorScoreDates = priorDates.map((date) => blobKeys.score(userId, date))
@@ -144,7 +163,9 @@ export async function runWeeklyHealthSummary(): Promise<void> {
       averageHealthScore: currentHealthScore,
       weekOverWeek: {
         averageSteps: averageSteps === null || mean(prior.map((day) => day.steps)) === null ? null : averageSteps - mean(prior.map((day) => day.steps))!,
-        exerciseMinutes: totalExerciseMinutes - prior.reduce((sum, day) => sum + (day.exerciseMinutes ?? 0), 0),
+        exerciseMinutes: totalExerciseMinutes === null || !prior.some((day) => day.exerciseMinutes !== null)
+          ? null
+          : totalExerciseMinutes - prior.reduce((sum, day) => sum + (day.exerciseMinutes ?? 0), 0),
         healthScore: currentHealthScore === null || priorHealthScore === null ? null : currentHealthScore - priorHealthScore,
       },
       generatedAt: new Date().toISOString(),
