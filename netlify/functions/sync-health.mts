@@ -33,16 +33,23 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   }
 
   const syncRepository = new SyncRepository()
-  const previousState = batch === 0 ? null : await syncRepository.get(user.id)
+  const previousState = await syncRepository.get(user.id)
   if (batch > 0 && (previousState?.status !== 'running' || typeof payload.runStartedAt !== 'string' || payload.runStartedAt !== previousState.lastStartedAt)) {
     return jsonFailure(409, 'sync_batch_out_of_order', '同步批次已失效，請重新開始同步。')
   }
   const startedAt = batch === 0 ? new Date().toISOString() : previousState!.lastStartedAt!
+  const legacyNextEndTime = previousState?.lastCompletedAt && previousState.lastStartedAt
+    ? new Date(Date.parse(previousState.lastStartedAt) - BATCH_COUNT * BATCH_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    : null
+  const runEndTime = batch === 0
+    ? previousState?.nextEndTime ?? legacyNextEndTime ?? startedAt
+    : previousState!.runEndTime ?? startedAt
+  const nextEndTime = batch === 0 ? previousState?.nextEndTime ?? legacyNextEndTime : previousState!.nextEndTime ?? null
   const previousCount = batch === 0 ? 0 : previousState!.recordCount
-  await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: null, status: 'running', recordCount: previousCount, errorCode: null })
+  await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime, lastCompletedAt: null, status: 'running', recordCount: previousCount, errorCode: null })
 
   try {
-    const end = new Date(Date.parse(startedAt))
+    const end = new Date(Date.parse(runEndTime))
     end.setUTCDate(end.getUTCDate() - batch * BATCH_DAYS)
     const start = new Date(end)
     start.setUTCDate(start.getUTCDate() - BATCH_DAYS)
@@ -69,12 +76,12 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1
     const completedAt = done ? new Date().toISOString() : null
-    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: completedAt, status: done ? 'idle' : 'running', recordCount: totalRecordCount, errorCode: null })
-    return jsonSuccess({ batch, batchCount: BATCH_COUNT, runStartedAt: startedAt, startTime: start.toISOString(), endTime: end.toISOString(), lastCompletedAt: completedAt, recordCount: records.length, totalRecordCount, done, recordCounts })
+    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime: done ? start.toISOString() : nextEndTime, lastCompletedAt: completedAt, status: done ? 'idle' : 'running', recordCount: totalRecordCount, errorCode: null })
+    return jsonSuccess({ batch, batchCount: BATCH_COUNT, runStartedAt: startedAt, runEndTime, startTime: start.toISOString(), endTime: end.toISOString(), lastCompletedAt: completedAt, recordCount: records.length, totalRecordCount, done, recordCounts })
   } catch (error) {
     const errorCode = error instanceof Error ? error.constructor.name : 'sync_failed'
     console.error('sync-health failed', error instanceof Error ? { name: error.name, message: error.message } : { error: 'unknown_error' })
-    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, lastCompletedAt: null, status: 'error', recordCount: previousCount, errorCode })
+    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime, lastCompletedAt: null, status: 'error', recordCount: previousCount, errorCode })
     return jsonFailure(502, 'sync_failed', 'Google Health 同步失敗。')
   }
 }

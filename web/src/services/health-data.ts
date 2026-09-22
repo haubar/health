@@ -3,13 +3,14 @@ import { getJson, postJson } from './api'
 
 export interface HealthDataClient {
   getDashboard(range: string): Promise<DashboardData>
-  sync(onProgress?: (progress: { batch: number; batchCount: number; recordCount: number }) => void): Promise<{ lastCompletedAt: string; recordCount: number }>
+  sync(onProgress?: (progress: { batch: number; batchCount: number; recordCount: number }) => void): Promise<{ lastCompletedAt: string; recordCount: number; windowStart: string; windowEnd: string }>
 }
 
 interface SyncBatchResponse {
   batch: number
   batchCount: number
   runStartedAt: string
+  runEndTime: string
   startTime: string
   endTime: string
   recordCount: number
@@ -51,11 +52,13 @@ export const healthDataClient: HealthDataClient = {
     let runStartedAt: string | null = null
     let recordCount = 0
     let lastCompletedAt: string | null = null
+    let windowStart = ''
+    let windowEnd = ''
     try {
       for (let batch = 0; ; batch += 1) {
         const result: SyncBatchResponse = await postJson<SyncBatchResponse>('/.netlify/functions/sync-health', { batch, runStartedAt })
         batchCount = result.batchCount
-        const expectedEnd = new Date(result.runStartedAt)
+        const expectedEnd = new Date(result.runEndTime)
         expectedEnd.setUTCDate(expectedEnd.getUTCDate() - batch)
         const expectedStart = new Date(expectedEnd)
         expectedStart.setUTCDate(expectedStart.getUTCDate() - 1)
@@ -64,6 +67,8 @@ export const healthDataClient: HealthDataClient = {
           throw new Error(`同步資料核對失敗：第 ${batch + 1} 批日期範圍或筆數不一致。`)
         }
         runStartedAt = result.runStartedAt
+        windowStart = result.startTime
+        if (batch === 0) windowEnd = result.endTime
         recordCount += result.recordCount
         if (result.totalRecordCount !== recordCount || result.done !== (batch === batchCount - 1)) {
           throw new Error(`同步資料核對失敗：第 ${batch + 1} 批累計筆數不一致。`)
@@ -71,7 +76,7 @@ export const healthDataClient: HealthDataClient = {
         onProgress?.({ batch: batch + 1, batchCount, recordCount })
         if (result.done) lastCompletedAt = result.lastCompletedAt
       }
-      return { lastCompletedAt: lastCompletedAt!, recordCount }
+      return { lastCompletedAt: lastCompletedAt!, recordCount, windowStart, windowEnd }
     } finally {
       clearDashboardCache()
     }
