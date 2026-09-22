@@ -1,9 +1,11 @@
-import type { DashboardData, HealthAnalysisData } from '@health/shared'
-import { getJson, postJson } from './api'
+import type { DashboardData, GoalSettings, HealthAnalysisData } from '@health/shared'
+import { getJson, postJson, putJson } from './api'
 
 export interface HealthDataClient {
   getDashboard(month: string): Promise<DashboardData>
   getAnalysis(): Promise<HealthAnalysisData>
+  getSettings(): Promise<GoalSettings>
+  saveSettings(settings: Pick<GoalSettings, 'dailyStepGoal' | 'weeklyExerciseMinutesGoal' | 'weightGoalKg'>): Promise<GoalSettings>
   sync(onProgress?: (progress: { batch: number; batchCount: number; recordCount: number }) => void): Promise<{ lastCompletedAt: string; recordCount: number; windowStart: string; windowEnd: string }>
 }
 
@@ -60,6 +62,12 @@ export const healthDataClient: HealthDataClient = {
       })
       .finally(() => { analysisRequest = null })
     return analysisRequest
+  },
+  getSettings: () => getJson<GoalSettings>('/.netlify/functions/health-settings'),
+  async saveSettings(settings) {
+    const saved = await putJson<GoalSettings>('/.netlify/functions/health-settings', settings)
+    analysisCache = null
+    return saved
   },
   async sync(onProgress) {
     clearDashboardCache()

@@ -86,6 +86,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
       summary: summary ?? emptyDashboardSummary(summaryDate),
       lastUpdatedAt: Number.isFinite(latestRecordTime) ? new Date(latestRecordTime).toISOString() : null,
       hasRecords: records.length > 0,
+      synced: true,
     })
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1

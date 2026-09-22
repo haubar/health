@@ -8,6 +8,7 @@ const dashboardSummarySchema = z.object({
   summary: dailyHealthSummarySchema,
   lastUpdatedAt: z.iso.datetime().nullable(),
   hasRecords: z.boolean(),
+  synced: z.boolean().optional(),
 })
 
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>

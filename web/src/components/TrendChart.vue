@@ -13,6 +13,8 @@ const props = defineProps<{
   points: ChartPoint[]
   unit: string
   kind?: ChartKind
+  timeScale?: boolean
+  showPoints?: boolean
 }>()
 
 const element = ref<HTMLDivElement | null>(null)
@@ -54,13 +56,17 @@ async function renderChart() {
       formatter: (params: unknown) => {
         const item = Array.isArray(params) ? params[0] : params
         if (!item || typeof item !== 'object' || !('value' in item)) return ''
-        const value = 'value' in item ? item.value : ''
-        return `${String(value)} ${props.unit}`
+        const raw = item.value
+        const value = Array.isArray(raw) ? raw[1] : raw
+        const label = Array.isArray(raw) && typeof raw[0] === 'number'
+          ? new Date(raw[0]).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
+          : 'axisValueLabel' in item ? String(item.axisValueLabel) : ''
+        return `${label} · ${String(value)} ${props.unit}`
       },
     } satisfies TooltipComponentOption,
     xAxis: {
-      type: 'category',
-      data: props.points.map((point) => point.label),
+      type: props.timeScale ? 'time' : 'category',
+      ...(props.timeScale ? {} : { data: props.points.map((point) => point.label) }),
       axisLabel: { color: '#84948f' },
       axisLine: { lineStyle: { color: '#2a383d' } },
     },
@@ -72,9 +78,12 @@ async function renderChart() {
     series: [
       {
         type: props.kind ?? 'line',
-        data: props.points.map((point) => point.value),
+        data: props.timeScale
+          ? props.points.map((point) => [Date.parse(`${point.label}T00:00:00Z`), point.value])
+          : props.points.map((point) => point.value),
         smooth: props.kind !== 'bar',
-        showSymbol: false,
+        showSymbol: props.showPoints ?? false,
+        symbolSize: props.showPoints ? 7 : 0,
         itemStyle: { color: '#82f0c4' },
         lineStyle: { color: '#82f0c4', width: 3 },
         areaStyle: props.kind === 'line' ? { color: 'rgba(130, 240, 196, .12)' } : undefined,

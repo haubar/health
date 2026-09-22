@@ -96,6 +96,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
         summary: summariesByDate.get(date) ?? emptyDashboardSummary(date),
         lastUpdatedAt: Number.isFinite(latestByDate.get(date)) ? new Date(latestByDate.get(date)!).toISOString() : null,
         hasRecords: (recordCountsByDate.get(date) ?? 0) > 0,
+        synced: false,
       },
     })))
     for (const date of missingDates) {

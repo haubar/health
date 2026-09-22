@@ -75,15 +75,49 @@ export async function runDailyHealthAnalysis(): Promise<void> {
     const hasOlderManualCursor = manualCursor < scheduledCursor
     if ((scheduledState?.status !== 'complete' || hasOlderManualCursor) && manualState?.status !== 'running') {
       const cutoff = healthDayStart(shiftHealthDate(today, -7))
+      const historyFloor = healthDayStart(shiftHealthDate(today, -730))
       const cursorTime = Math.min(manualCursor, scheduledCursor, cutoff.getTime())
-      backfillEnd = new Date(cursorTime)
-      backfillStart = new Date(cursorTime - 24 * 60 * 60 * 1000)
-      if (scheduledState?.retryAt && Date.parse(scheduledState.retryAt) > now.getTime()) {
+      if (cursorTime <= historyFloor.getTime()) {
+        scheduledState = {
+          userId, status: 'complete', nextEndTime: historyFloor.toISOString(),
+          consecutiveEmptyDays: scheduledState?.consecutiveEmptyDays ?? 0,
+          attemptCount: 0, retryAt: null, lastSuccessfulAt: scheduledState?.lastSuccessfulAt ?? null,
+          lastErrorCode: null,
+        }
+        await scheduledRepository.set(userId, scheduledState)
+        backfillStatus = 'two_year_limit_reached'
+      } else {
+        backfillEnd = new Date(cursorTime)
+        backfillStart = new Date(Math.max(cursorTime - 24 * 60 * 60 * 1000, historyFloor.getTime()))
+      }
+      if (backfillStart && backfillEnd && scheduledState?.retryAt && Date.parse(scheduledState.retryAt) > now.getTime()) {
         backfillStatus = 'retry_deferred'
         console.log('daily-health-analysis backfill deferred', { userId, retryAt: scheduledState.retryAt, attemptCount: scheduledState.attemptCount })
         backfillStart = null
         backfillEnd = null
-      } else {
+      } else if (backfillStart && backfillEnd) {
+        const existingDay = await new DashboardSummaryRepository().get(userId, healthDate(backfillStart))
+        if (existingDay?.synced) {
+          const consecutiveEmptyDays = existingDay.hasRecords ? 0 : (scheduledState?.consecutiveEmptyDays ?? 0) + 1
+          scheduledState = {
+            userId,
+            status: consecutiveEmptyDays >= BACKFILL_EMPTY_DAY_LIMIT ? 'complete' : 'backfilling',
+            nextEndTime: backfillStart.toISOString(),
+            consecutiveEmptyDays,
+            attemptCount: 0,
+            retryAt: null,
+            lastSuccessfulAt: new Date().toISOString(),
+            lastErrorCode: null,
+          }
+          await scheduledRepository.set(userId, scheduledState)
+          console.log('daily-health-analysis backfill skipped', {
+            userId, date: healthDate(backfillStart), reason: 'already_synced',
+            consecutiveEmptyDays, status: scheduledState.status,
+          })
+          backfillStatus = 'already_synced'
+          backfillStart = null
+          backfillEnd = null
+        } else {
         try {
           const backfillRecords = await fetchRecords(provider, backfillStart, backfillEnd)
           const backfillWrite = await new HealthRecordRepository().setMany(backfillRecords)
@@ -135,6 +169,7 @@ export async function runDailyHealthAnalysis(): Promise<void> {
           backfillStart = null
           backfillEnd = null
         }
+        }
       }
     } else if (scheduledState?.status === 'complete' && !hasOlderManualCursor) {
       backfillStatus = 'complete'
@@ -157,6 +192,7 @@ export async function runDailyHealthAnalysis(): Promise<void> {
         summary: summaryByDate.get(date) ?? emptyDashboardSummary(date),
         lastUpdatedAt: Number.isFinite(latestByDate.get(date)) ? new Date(latestByDate.get(date)!).toISOString() : null,
         hasRecords: summaryByDate.has(date),
+        synced: true,
       },
     })))
 

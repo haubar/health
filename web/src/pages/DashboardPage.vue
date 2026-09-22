@@ -5,7 +5,6 @@ import { emptyDashboardData, healthDataClient } from '../services/health-data'
 import type { DashboardData, HealthAnalysisData } from '@health/shared'
 import HealthStateCard from '../components/HealthStateCard.vue'
 import HealthLoading from '../components/HealthLoading.vue'
-import MetricCard from '../components/MetricCard.vue'
 import TrendChart from '../components/TrendChart.vue'
 
 const auth = useAuthStore()
@@ -17,7 +16,11 @@ const month = ref(currentMonthValue())
 const currentMonth = currentMonthValue()
 const monthLabel = computed(() => new Intl.DateTimeFormat('zh-TW', { year: 'numeric', month: 'long', timeZone: 'Asia/Taipei' }).format(new Date(`${month.value}-01T00:00:00+08:00`)))
 const data = ref<DashboardData>(emptyDashboardData)
-const analysis = ref<HealthAnalysisData>({ score: null, scoreDate: null, weeklySummary: null, insights: [], timeline: [] })
+const analysis = ref<HealthAnalysisData>({
+  weeklySummary: null, insights: [], timeline: [],
+  weightLoss: { latestKg: null, latestDate: null, targetKg: null, kgToGoal: null, changeKg: null, changeDays: null, sampleCount90d: 0, points: [] },
+  activityWeek: { weekStart: '', averageSteps: null, stepGoal: 8000, stepGoalDays: 0, stepTrackedDays: 0, recordedExerciseMinutes: null, exerciseTrackedDays: 0, exerciseGoalMinutes: 150 },
+})
 const loading = ref(true)
 const loadError = ref('')
 let requestId = 0
@@ -41,11 +44,35 @@ function shiftMonth(offset: number): void {
   const date = new Date(Date.UTC(year!, monthNumber! - 1 + offset, 1))
   month.value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
-const latest = computed(() => data.value.summaries[data.value.summaries.length - 1] ?? null)
 const hasActivity = computed(() => data.value.summaries.some((day) => day.steps !== null || day.distanceKm !== null || day.activeMinutes !== null || day.exerciseMinutes !== null))
-const hasBody = computed(() => data.value.summaries.some((day) => day.weightKg !== null || day.bodyFatPercentage !== null))
 const stepPoints = computed(() => data.value.summaries.flatMap((day) => day.steps === null ? [] : [{ label: day.date, value: day.steps }]))
-const weightPoints = computed(() => data.value.summaries.flatMap((day) => day.weightKg === null ? [] : [{ label: day.date, value: day.weightKg }]))
+const weightPoints = computed(() => analysis.value.weightLoss.points.map((point) => ({ label: point.date, value: point.weightKg })))
+const goalDistanceText = computed(() => {
+  const amount = analysis.value.weightLoss.kgToGoal
+  if (amount === null) return ''
+  if (amount > 0) return `距離目標 ${amount.toFixed(1)} kg`
+  if (amount < 0) return `目前比設定目標低 ${Math.abs(amount).toFixed(1)} kg`
+  return '已到達設定目標'
+})
+const weightChangeText = computed(() => {
+  const amount = analysis.value.weightLoss.changeKg
+  if (amount === null) return null
+  return `${amount > 0 ? '+' : ''}${amount.toFixed(1)} kg`
+})
+const nextStep = computed(() => {
+  const week = analysis.value.activityWeek
+  if (week.stepTrackedDays >= 4 && week.stepGoalDays < week.stepTrackedDays) {
+    return '下週先比上週多安排 1 個步數達標日，觀察能否穩定維持。'
+  }
+  if (week.recordedExerciseMinutes !== null && week.recordedExerciseMinutes < week.exerciseGoalMinutes) {
+    const remaining = Math.ceil(week.exerciseGoalMinutes - week.recordedExerciseMinutes)
+    return `上週已記錄運動距目標還差 ${remaining} 分鐘，可分散安排在幾次活動中。`
+  }
+  if (week.stepTrackedDays > 0 && week.stepGoalDays === week.stepTrackedDays && week.recordedExerciseMinutes !== null) {
+    return '上週設定的步數與運動目標都已達成；維持目前節奏，觀察體重的多週變化。'
+  }
+  return '先確認 Google Health 已完成近期同步，再根據每週步數與運動紀錄調整活動目標。'
+})
 </script>
 
 <template>
@@ -53,13 +80,13 @@ const weightPoints = computed(() => data.value.summaries.flatMap((day) => day.we
     <header class="page-header">
       <div>
         <p class="eyebrow">OVERVIEW</p>
-        <h1>健康總覽</h1>
+        <h1>減重進度</h1>
       </div>
       <span class="account-chip">{{ auth.user?.displayName ?? auth.user?.email }}</span>
     </header>
 
     <div class="dashboard-toolbar">
-      <span class="section-label">每次載入一個月的趨勢資料</span>
+      <span class="section-label">體重趨勢看近 90 天；下方活動資料可逐月瀏覽</span>
       <div class="month-navigation" aria-label="切換月份">
         <button type="button" aria-label="查看前一個月" @click="shiftMonth(-1)">←</button>
         <strong>{{ monthLabel }}</strong>
@@ -69,41 +96,59 @@ const weightPoints = computed(() => data.value.summaries.flatMap((day) => day.we
     <HealthLoading v-if="loading" />
     <HealthStateCard v-else-if="loadError" state="error" title="資料載入失敗" :description="loadError" />
     <template v-else>
-      <div class="metric-grid">
-        <MetricCard v-if="hasActivity" label="最新步數" :value="latest?.steps ?? null" unit="步" />
-        <MetricCard v-if="hasActivity" label="最新距離" :value="latest?.distanceKm ?? null" unit="km" />
-        <MetricCard v-if="hasActivity" label="最新活動時間" :value="latest?.activeMinutes ?? null" unit="分鐘" />
-        <MetricCard v-if="hasActivity" label="最新運動時間" :value="latest?.exerciseMinutes ?? null" unit="分鐘" />
-      </div>
-      <section v-if="analysis.score?.score !== null && analysis.score" class="analysis-overview">
-        <div class="analysis-heading">
+      <section class="weight-focus-card">
+        <div class="weight-focus-main">
           <div>
-            <p class="eyebrow">HEALTH SCORE</p>
-            <h2>{{ analysis.score.score }}<small> / 100</small></h2>
-            <p>資料日期：{{ analysis.scoreDate }} · 資料完整度 {{ Math.round(analysis.score.completeness * 100) }}%</p>
-            <p class="score-note">個人活動與身體趨勢參考，不是醫療評估。</p>
+            <p class="eyebrow">LATEST MEASUREMENT</p>
+            <template v-if="analysis.weightLoss.latestKg !== null">
+              <p class="weight-reading">{{ analysis.weightLoss.latestKg.toFixed(1) }} <small>kg</small></p>
+              <p class="weight-date">最近量測：{{ analysis.weightLoss.latestDate }}</p>
+            </template>
+            <template v-else>
+              <h2>尚無體重量測</h2>
+              <p class="weight-date">連結體重資料來源並同步後，這裡會顯示實際量測紀錄。</p>
+            </template>
           </div>
-          <div class="score-details">
-            <span>活動 {{ analysis.score.activity.score ?? '—' }}</span>
-            <span>身體 {{ analysis.score.body.score ?? '—' }}</span>
+          <div v-if="analysis.weightLoss.targetKg !== null" class="weight-goal-block">
+            <span>目標體重</span><strong>{{ analysis.weightLoss.targetKg.toFixed(1) }} kg</strong>
+            <small>{{ goalDistanceText }}</small>
           </div>
+          <RouterLink v-else class="goal-setup-link" to="/settings">設定減重目標 <span>→</span></RouterLink>
+        </div>
+        <div class="weight-focus-stats">
+          <div>
+            <span>近 90 天淨變化</span>
+            <strong v-if="weightChangeText !== null">{{ weightChangeText }}</strong>
+            <strong v-else>資料累積中</strong>
+            <small v-if="weightChangeText === null">至少 3 次量測且跨 14 天才比較</small>
+            <small v-else>依 {{ analysis.weightLoss.sampleCount90d }} 次量測，跨 {{ analysis.weightLoss.changeDays }} 天</small>
+          </div>
+          <div><span>90 天量測次數</span><strong>{{ analysis.weightLoss.sampleCount90d }}</strong><small>只計實際同步的體重資料</small></div>
         </div>
       </section>
-      <section v-if="analysis.weeklySummary && (analysis.weeklySummary.averageSteps !== null || analysis.weeklySummary.totalExerciseMinutes !== null || analysis.weeklySummary.weightTrendKg !== null || analysis.weeklySummary.averageHealthScore !== null)" class="weekly-card">
-        <div class="analysis-heading">
-          <div>
-            <p class="eyebrow">PREVIOUS WEEK</p>
-            <h2>每週摘要</h2>
-            <p>{{ analysis.weeklySummary.weekStart }} 起 · 週一至週日</p>
-          </div>
-          <div class="weekly-metrics">
-            <span>平均步數 <strong>{{ analysis.weeklySummary.averageSteps === null ? '—' : Math.round(analysis.weeklySummary.averageSteps).toLocaleString() }}</strong></span>
-            <span>運動時間 <strong>{{ analysis.weeklySummary.totalExerciseMinutes === null ? '—' : `${Math.round(analysis.weeklySummary.totalExerciseMinutes)} 分鐘` }}</strong></span>
-            <span>體重變化 <strong>{{ analysis.weeklySummary.weightTrendKg === null ? '—' : `${analysis.weeklySummary.weightTrendKg > 0 ? '+' : ''}${analysis.weeklySummary.weightTrendKg.toFixed(1)} kg` }}</strong></span>
-            <span>平均 Health Score <strong>{{ analysis.weeklySummary.averageHealthScore ?? '—' }}</strong></span>
-            <span>步數較前週 <strong>{{ analysis.weeklySummary.weekOverWeek.averageSteps === null ? '—' : `${analysis.weeklySummary.weekOverWeek.averageSteps > 0 ? '+' : ''}${Math.round(analysis.weeklySummary.weekOverWeek.averageSteps).toLocaleString()}` }}</strong></span>
-          </div>
+
+      <TrendChart v-if="weightPoints.length" title="體重趨勢 · 近 90 天" :range="'90D'" :points="weightPoints" unit="kg" :time-scale="true" :show-points="true" />
+      <p v-if="weightPoints.length" class="weight-context">體重會受水分與量測時點影響；單次升降不等同脂肪變化，請看一段時間的整體方向。</p>
+
+      <section class="activity-coaching-card">
+        <header class="activity-coaching-heading">
+          <div><p class="eyebrow">WEEKLY HABITS</p><h2>上週活動習慣</h2></div>
+          <span>{{ analysis.activityWeek.weekStart }} 起 · 週一至週日</span>
+        </header>
+        <div class="habit-grid">
+          <article class="habit-item">
+            <div class="habit-topline"><span>步數達標日</span><strong v-if="analysis.activityWeek.stepTrackedDays">{{ analysis.activityWeek.stepGoalDays }}<small> / {{ analysis.activityWeek.stepTrackedDays }} 個有資料日</small></strong><strong v-else>—</strong></div>
+            <p v-if="analysis.activityWeek.averageSteps !== null">日均 {{ Math.round(analysis.activityWeek.averageSteps).toLocaleString() }} 步 · 目標 {{ analysis.activityWeek.stepGoal.toLocaleString() }}</p>
+            <p v-else>上週沒有可用步數資料。</p>
+            <div v-if="analysis.activityWeek.stepTrackedDays" class="habit-track"><span :style="{ width: `${Math.min(100, analysis.activityWeek.stepGoalDays / analysis.activityWeek.stepTrackedDays * 100)}%` }"></span></div>
+          </article>
+          <article class="habit-item">
+            <div class="habit-topline"><span>已記錄運動</span><strong>{{ analysis.activityWeek.recordedExerciseMinutes === null ? '—' : Math.round(analysis.activityWeek.recordedExerciseMinutes) }}<small>{{ analysis.activityWeek.recordedExerciseMinutes === null ? '' : ' 分鐘' }}</small></strong></div>
+            <p>{{ analysis.activityWeek.exerciseTrackedDays ? `來自 ${analysis.activityWeek.exerciseTrackedDays} 天的運動紀錄 · 週目標 ${analysis.activityWeek.exerciseGoalMinutes} 分鐘` : '上週沒有可用運動紀錄。' }}</p>
+            <div v-if="analysis.activityWeek.recordedExerciseMinutes !== null" class="habit-track"><span :style="{ width: `${Math.min(100, analysis.activityWeek.recordedExerciseMinutes / analysis.activityWeek.exerciseGoalMinutes * 100)}%` }"></span></div>
+          </article>
         </div>
+        <div class="next-step"><span>下一步</span><p>{{ nextStep }}</p></div>
       </section>
       <section v-if="analysis.insights.length" class="insight-preview">
         <header><h2>近期洞察</h2><RouterLink to="/insights">查看全部 →</RouterLink></header>
@@ -113,9 +158,8 @@ const weightPoints = computed(() => data.value.summaries.flatMap((day) => day.we
       </section>
       <div class="dashboard-grid">
         <TrendChart v-if="hasActivity" title="步數趨勢" :range="'30D'" :points="stepPoints" unit="步" />
-        <TrendChart v-if="hasBody" title="體重趨勢" :range="'30D'" :points="weightPoints" unit="kg" />
       </div>
-      <HealthStateCard v-if="data.availability === 'empty'" state="empty" title="尚未取得健康資料" description="完成 Google Health 連線與首次同步後，有實際資料的區塊和導覽入口才會自動出現。" />
+      <HealthStateCard v-if="data.availability === 'empty' && !hasActivity && analysis.weightLoss.latestKg === null" state="empty" title="這段期間還沒有同步資料" description="完成 Google Health 連線與同步後，有實際資料的區塊才會出現。" />
     </template>
 
     <p class="data-rule">缺少的資料不會以 0 顯示，也不會用推測值補齊。</p>

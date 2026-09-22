@@ -61,11 +61,29 @@ export type WeeklyHealthSummary = {
 }
 
 export type HealthAnalysisData = {
-  score: OverallScore | null
-  scoreDate: string | null
   weeklySummary: WeeklyHealthSummary | null
   insights: HealthInsight[]
   timeline: TimelineEvent[]
+  weightLoss: {
+    latestKg: number | null
+    latestDate: string | null
+    targetKg: number | null
+    kgToGoal: number | null
+    changeKg: number | null
+    changeDays: number | null
+    sampleCount90d: number
+    points: Array<{ date: string; weightKg: number }>
+  }
+  activityWeek: {
+    weekStart: string
+    averageSteps: number | null
+    stepGoal: number
+    stepGoalDays: number
+    stepTrackedDays: number
+    recordedExerciseMinutes: number | null
+    exerciseTrackedDays: number
+    exerciseGoalMinutes: number
+  }
 }
 
 type NumericRecord = HealthRecord & { value: number }
