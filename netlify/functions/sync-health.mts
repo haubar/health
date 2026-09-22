@@ -59,7 +59,13 @@ const fetchHandler = async (request: Request): Promise<Response> => {
       recordCount: records.length,
     })
     const repository = new HealthRecordRepository()
-    await repository.setMany(records)
+    const writeResult = await repository.setMany(records)
+    console.log('sync-health batch blobs verified', {
+      batch,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      ...writeResult,
+    })
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1
     const completedAt = done ? new Date().toISOString() : null
