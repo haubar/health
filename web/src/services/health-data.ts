@@ -54,27 +54,35 @@ export const healthDataClient: HealthDataClient = {
     let lastCompletedAt: string | null = null
     let windowStart = ''
     let windowEnd = ''
+    let previousBatchStart: string | null = null
     try {
       for (let batch = 0; ; batch += 1) {
         const result: SyncBatchResponse = await postJson<SyncBatchResponse>('/.netlify/functions/sync-health', { batch, runStartedAt })
         batchCount = result.batchCount
-        const expectedEnd = new Date(result.runEndTime)
-        expectedEnd.setUTCDate(expectedEnd.getUTCDate() - batch)
-        const expectedStart = new Date(expectedEnd)
-        expectedStart.setUTCDate(expectedStart.getUTCDate() - 1)
+        const startTime = Date.parse(result.startTime)
+        const endTime = Date.parse(result.endTime)
         const fetchedCount = Object.values(result.recordCounts).reduce((sum, value) => sum + value, 0)
-        if (result.batch !== batch || result.startTime !== expectedStart.toISOString() || result.endTime !== expectedEnd.toISOString() || fetchedCount !== result.recordCount) {
+        const validRange = Number.isFinite(startTime)
+          && Number.isFinite(endTime)
+          && endTime - startTime === 24 * 60 * 60 * 1000
+          && (batch > 0 || result.endTime === result.runEndTime)
+          && (previousBatchStart === null || result.endTime === previousBatchStart)
+        if (result.batch !== batch || !validRange || fetchedCount !== result.recordCount) {
           throw new Error(`同步資料核對失敗：第 ${batch + 1} 批日期範圍或筆數不一致。`)
         }
         runStartedAt = result.runStartedAt
         windowStart = result.startTime
         if (batch === 0) windowEnd = result.endTime
+        previousBatchStart = result.startTime
         recordCount += result.recordCount
         if (result.totalRecordCount !== recordCount || result.done !== (batch === batchCount - 1)) {
           throw new Error(`同步資料核對失敗：第 ${batch + 1} 批累計筆數不一致。`)
         }
         onProgress?.({ batch: batch + 1, batchCount, recordCount })
-        if (result.done) lastCompletedAt = result.lastCompletedAt
+        if (result.done) {
+          lastCompletedAt = result.lastCompletedAt
+          break
+        }
       }
       return { lastCompletedAt: lastCompletedAt!, recordCount, windowStart, windowEnd }
     } finally {
