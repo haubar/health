@@ -20,6 +20,7 @@ export const blobKeys = {
   auth: (userId: string) => `users/${segment(userId, 'userId')}/google-health.json`,
   settings: (userId: string) => `users/${segment(userId, 'userId')}/goals.json`,
   syncState: (userId: string) => `users/${segment(userId, 'userId')}/state/google-health.json`,
+  scheduledSyncState: (userId: string) => `users/${segment(userId, 'userId')}/state/scheduled-google-health.json`,
   dashboardCache: (userId: string, range: string) => `users/${segment(userId, 'userId')}/dashboard/${segment(range, 'range')}.json`,
   daily: (userId: string, date: string) => {
     const { year, month } = dateParts(date)

@@ -13,3 +13,16 @@ export const syncStateSchema = z.object({
 })
 
 export type SyncState = z.infer<typeof syncStateSchema>
+
+export const scheduledSyncStateSchema = z.object({
+  userId: z.string().min(1),
+  status: z.enum(['backfilling', 'complete']),
+  nextEndTime: z.iso.datetime().nullable(),
+  consecutiveEmptyDays: z.number().int().nonnegative(),
+  attemptCount: z.number().int().nonnegative(),
+  retryAt: z.iso.datetime().nullable(),
+  lastSuccessfulAt: z.iso.datetime().nullable(),
+  lastErrorCode: z.string().min(1).nullable(),
+})
+
+export type ScheduledSyncState = z.infer<typeof scheduledSyncStateSchema>

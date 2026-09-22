@@ -41,7 +41,9 @@ export class GoogleHealthApiError extends Error { constructor(public readonly st
 
 export class GoogleHealthProvider implements HealthProvider {
   private readonly oauthClient: OAuth2Client
+  private apiRequestCount = 0
   constructor(private readonly userId: string, refreshToken: string, clientId: string, clientSecret: string) { this.oauthClient = new OAuth2Client(clientId, clientSecret); this.oauthClient.setCredentials({ refresh_token: refreshToken }) }
+  get requestCount(): number { return this.apiRequestCount }
   getSteps(range: DateRange): Promise<HealthRecord[]> { return this.getType('steps', range) }
   getWeight(range: DateRange): Promise<HealthRecord[]> { return this.getType('weight', range) }
   getBodyFat(range: DateRange): Promise<HealthRecord[]> { return this.getType('body-fat', range) }
@@ -55,6 +57,7 @@ export class GoogleHealthProvider implements HealthProvider {
       // The OpenID Connect subject is our internal owner key, not a Google Health user ID.
       // `users/me` lets Google resolve the Health identity from the access token.
       const url = new URL(`${GOOGLE_HEALTH_API_BASE}/users/me/dataTypes/${path}/dataPoints`); url.searchParams.set('filter', filterFor(path, range)); if (pageToken) url.searchParams.set('pageToken', pageToken)
+      this.apiRequestCount += 1
       const response = await fetch(url, { headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' } }); if (!response.ok) { const errorBody = await response.text(); throw new GoogleHealthApiError(response.status, errorBody.slice(0, 500) || response.statusText) }
       const body = (await response.json()) as ListResponse
       for (const [index, point] of (body.dataPoints ?? []).entries()) { const times = definition.times(point); if (!times) continue; const value = definition.value(point); const metadata = definition.metadata?.(point); output.push({ id: normalizedId(point.name, `${path}-${times.start}-${index}`), userId: this.userId, provider: 'google_health', sourceRecordId: point.name ?? `${path}-${times.start}-${index}`, sourceApp: point.dataSource?.application?.name, type: definition.recordType, startTime: new Date(times.start).toISOString(), ...(times.end ? { endTime: new Date(times.end).toISOString() } : {}), ...(value === undefined ? {} : { value }), ...(definition.unit ? { unit: definition.unit } : {}), resolution: definition.resolution, ...(metadata ? { metadata: removeUndefined(metadata) } : {}) }) }
