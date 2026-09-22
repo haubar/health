@@ -27,10 +27,11 @@ async function saveGoals(): Promise<void> {
   savingGoals.value = true
   goalsMessage.value = ''
   try {
+    const targetWeightInput = String(weightGoalKg.value ?? '').trim()
     const settings = await healthDataClient.saveSettings({
       dailyStepGoal: dailyStepGoal.value,
       weeklyExerciseMinutesGoal: weeklyExerciseMinutesGoal.value,
-      weightGoalKg: weightGoalKg.value.trim() ? Number(weightGoalKg.value) : null,
+      weightGoalKg: targetWeightInput ? Number(targetWeightInput) : null,
     })
     weightGoalKg.value = settings.weightGoalKg === null ? '' : String(settings.weightGoalKg)
     goalsMessage.value = '目標已儲存。'
