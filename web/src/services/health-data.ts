@@ -18,7 +18,7 @@ interface SyncBatchResponse {
   endTime: string
   recordCount: number
   totalRecordCount: number
-  recordCounts: { activity: number; weight: number; bodyFat: number; workouts: number }
+  recordCounts: { activity: number; weight: number; bodyFat: number; workouts: number; totalCalories: number }
   done: boolean
   lastCompletedAt: string | null
 }
