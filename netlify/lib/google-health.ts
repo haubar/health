@@ -58,7 +58,10 @@ export class GoogleHealthProvider implements HealthProvider {
       timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
     }).format(instant)
     const startDay = civilDate(range.start)
-    const endDay = civilDate(range.end)
+    const endDay = civilDate(new Date(range.end.getTime() - 1))
+    const exclusiveEndDay = new Date(`${endDay}T00:00:00Z`)
+    exclusiveEndDay.setUTCDate(exclusiveEndDay.getUTCDate() + 1)
+    const endExclusive = exclusiveEndDay.toISOString().slice(0, 10)
     // Each existing sync batch is one full Taipei day; keep the official 14-day limit.
     const civil = (date: string) => {
       const [year, month, day] = date.split('-').map(Number)
@@ -68,7 +71,7 @@ export class GoogleHealthProvider implements HealthProvider {
     const response = await fetch(`${GOOGLE_HEALTH_API_BASE}/users/me/dataTypes/total-calories/dataPoints:dailyRollUp`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range: { start: civil(startDay), end: civil(endDay) }, windowSizeDays: 1 }),
+      body: JSON.stringify({ range: { start: civil(startDay), end: civil(endExclusive) }, windowSizeDays: 1 }),
     })
     if (!response.ok) {
       const errorBody = await response.text()
