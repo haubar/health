@@ -40,7 +40,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   if (payload.forceDate !== undefined) {
     const today = healthDate(new Date())
     const oldest = shiftHealthDate(today, -6)
-    if (batch !== 0 || typeof payload.forceDate !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(payload.forceDate)
+    if (batch !== 0 || typeof payload.forceDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(payload.forceDate)
       || payload.forceDate < oldest || payload.forceDate > today) {
       return jsonFailure(400, 'invalid_force_date', '僅可重新同步最近七天的單一日期。')
     }
@@ -64,7 +64,8 @@ const fetchHandler = async (request: Request): Promise<Response> => {
         hasRecords: records.length > 0,
         synced: true,
       })
-      return jsonSuccess({ date: payload.forceDate, recordCount: records.length, synced: true })
+      console.info('daily sync counts', { date: payload.forceDate, totalCalories: totalCalories.length, activity: activity.length, weight: weight.length, bodyFat: bodyFat.length, workouts: workouts.length })
+      return jsonSuccess({ date: payload.forceDate, recordCount: records.length, totalCaloriesCount: totalCalories.length, synced: true })
     } catch (error) {
       console.error('sync-health forced daily refresh failed', { date: payload.forceDate, name: error instanceof Error ? error.name : 'unknown_error' })
       return jsonFailure(502, 'daily_sync_failed', '指定日期重新同步失敗。')
