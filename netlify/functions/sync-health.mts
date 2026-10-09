@@ -2,7 +2,7 @@ import type { Config } from '@netlify/functions'
 import { aggregateDailyHealthRecords } from '@health/shared'
 import { decryptSecret } from '../lib/crypto'
 import { getServerEnvironment } from '../lib/env'
-import { floorToHealthDay, healthDate, nextHealthDayStart } from '../lib/health-day'
+import { healthDate, healthDayStart, nextHealthDayStart, shiftHealthDate } from '../lib/health-day'
 import { GoogleHealthProvider } from '../lib/google-health'
 import { jsonFailure, jsonSuccess } from '../lib/response'
 import { AuthRepository } from '../lib/repositories/auth-repository'
@@ -24,15 +24,51 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   const auth = await new AuthRepository().get(user.id)
   if (!auth || auth.status !== 'connected') return jsonFailure(409, 'health_not_connected', '尚未連結 Google Health。')
 
-  let payload: { batch?: unknown; runStartedAt?: unknown }
+  let payload: { batch?: unknown; runStartedAt?: unknown; forceDate?: unknown }
   try {
-    payload = await request.json() as { batch?: unknown; runStartedAt?: unknown }
+    payload = await request.json() as { batch?: unknown; runStartedAt?: unknown; forceDate?: unknown }
   } catch {
     return jsonFailure(400, 'invalid_sync_batch', '同步批次參數無效。')
   }
   const batch = payload.batch
   if (typeof batch !== 'number' || !Number.isInteger(batch) || batch < 0 || batch >= BATCH_COUNT) {
     return jsonFailure(400, 'invalid_sync_batch', '同步批次參數無效。')
+  }
+
+  // One-day forced refresh is isolated from the ten-day backfill cursor.
+  // Only dates visible in the private seven-day report may be refreshed.
+  if (payload.forceDate !== undefined) {
+    const today = healthDate(new Date())
+    const oldest = shiftHealthDate(today, -6)
+    if (batch !== 0 || typeof payload.forceDate !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(payload.forceDate)
+      || payload.forceDate < oldest || payload.forceDate > today) {
+      return jsonFailure(400, 'invalid_force_date', '僅可重新同步最近七天的單一日期。')
+    }
+    const start = healthDayStart(payload.forceDate)
+    const end = healthDayStart(shiftHealthDate(payload.forceDate, 1))
+    try {
+      const provider = new GoogleHealthProvider(user.id, decryptSecret(auth.encryptedRefreshToken, env.HEALTH_TOKEN_ENCRYPTION_KEY), env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
+      const [activity, weight, bodyFat, workouts, totalCalories] = await Promise.all([
+        provider.getActivity({ start, end }), provider.getWeight({ start, end }),
+        provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end }),
+        provider.getTotalCalories({ start, end }),
+      ])
+      const records = [...activity, ...weight, ...bodyFat, ...workouts, ...totalCalories]
+      await new HealthRecordRepository().setMany(records)
+      const summary = aggregateDailyHealthRecords(records).find((item) => item.date === payload.forceDate)
+      let latestRecordTime = Number.NEGATIVE_INFINITY
+      for (const record of records) latestRecordTime = Math.max(latestRecordTime, Date.parse(record.startTime))
+      await new DashboardSummaryRepository().set(user.id, payload.forceDate, {
+        summary: summary ?? emptyDashboardSummary(payload.forceDate),
+        lastUpdatedAt: Number.isFinite(latestRecordTime) ? new Date(latestRecordTime).toISOString() : null,
+        hasRecords: records.length > 0,
+        synced: true,
+      })
+      return jsonSuccess({ date: payload.forceDate, recordCount: records.length, synced: true })
+    } catch (error) {
+      console.error('sync-health forced daily refresh failed', { date: payload.forceDate, name: error instanceof Error ? error.name : 'unknown_error' })
+      return jsonFailure(502, 'daily_sync_failed', '指定日期重新同步失敗。')
+    }
   }
 
   const syncRepository = new SyncRepository()
