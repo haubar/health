@@ -34,9 +34,9 @@ async function forceSyncSelectedDay() {
   syncingDay.value = true
   syncMessage.value = ''
   try {
-    const result = await postJson<{ date: string; recordCount: number; synced: boolean }>('/.netlify/functions/sync-health', { batch: 0, forceDate: selectedDate.value })
+    const result = await postJson<{ date: string; recordCount: number; totalCaloriesCount: number; synced: boolean }>('/.netlify/functions/sync-health', { batch: 0, forceDate: selectedDate.value })
     await load(true)
-    syncMessage.value = `${result.date} 已重新同步，共取得 ${result.recordCount} 筆紀錄。`
+    syncMessage.value = `${result.date} 已重新同步，共取得 ${result.recordCount} 筆紀錄，其中熱量 ${result.totalCaloriesCount} 筆。`
   } catch (cause) {
     syncMessage.value = cause instanceof Error ? cause.message : '當日重新同步失敗。'
   } finally {
