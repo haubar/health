@@ -126,7 +126,7 @@ export const healthDataClient: HealthDataClient = {
           && Number.isFinite(endTime)
           && endTime - startTime === 24 * 60 * 60 * 1000
           && (batch > 0 || result.endTime === result.runEndTime)
-          && (previousBatchStart === null || result.endTime === previousBatchStart)
+          && (previousBatchStart === null || endTime <= Date.parse(previousBatchStart))
         if (result.batch !== batch || !validRange || fetchedCount !== result.recordCount) {
           throw new Error(`同步資料核對失敗：第 ${batch + 1} 批日期範圍或筆數不一致。`)
         }
