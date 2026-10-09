@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { getJson } from '../services/api'
-type Day = { date: string; synced: boolean; lastUpdatedAt: string | null; steps: number | null; activeMinutes: number | null; exerciseMinutes: number | null; activeCalories: number | null; totalCalories: number | null; weightKg: number | null }
+type Day = { date: string; synced: boolean; lastUpdatedAt: string | null; steps: number | null; distanceKm: number | null; bodyFatPercentage: number | null; activeMinutes: number | null; exerciseMinutes: number | null; activeCalories: number | null; totalCalories: number | null; weightKg: number | null }
 type Report = { days: Day[]; stepGoal: number; weightGoalKg: number | null }
 const report = ref<Report | null>(null)
 const selectedDate = ref('')
@@ -10,6 +10,8 @@ const selectedDay = computed(() => report.value?.days.find(day => day.date === s
 const orderedDays = computed(() => [...(report.value?.days ?? [])].sort((a, b) => b.date.localeCompare(a.date)))
 const weekday = (date: string) => new Intl.DateTimeFormat('zh-TW', { weekday: 'short', timeZone: 'Asia/Taipei' }).format(new Date(date + 'T12:00:00+08:00'))
 const dayNumber = (date: string) => String(Number(date.slice(8, 10)))
+const measured = (value: number | null, unit: string) => value === null ? '未測量' : value.toLocaleString('zh-TW', { maximumFractionDigits: 1 }) + unit
+const numeric = (value: number | null, unit: string) => value === null ? '尚無資料' : value.toLocaleString('zh-TW', { maximumFractionDigits: 1 }) + unit
 const dateLabel = (date: string) => date.replace(/-/g, '/')
 const selectRelative = (offset: number) => {
   const index = orderedDays.value.findIndex(day => day.date === selectedDate.value)
@@ -51,11 +53,10 @@ onMounted(load)
       </section>
       <div v-for="day in report.days.filter(d => d.date === selectedDate)" :key="day.date" class="metric-grid">
         <div class="metric-card"><p>步數</p><strong>{{ day.steps ?? '—' }}</strong><small>目標 {{ report.stepGoal }} 步 · {{ day.steps === null ? '尚無資料' : Math.round(day.steps / report.stepGoal * 100) + '%' }} · {{ day.steps === null ? '無法計算剩餘步數' : '剩餘 ' + Math.max(0, report.stepGoal - day.steps) + ' 步' }}</small></div>
-        <div class="metric-card"><p>活動分鐘</p><strong>{{ day.activeMinutes ?? '—' }}</strong></div>
-        <div class="metric-card"><p>運動分鐘</p><strong>{{ day.exerciseMinutes ?? '—' }}</strong></div>
-        <div class="metric-card"><p>活動熱量</p><strong>{{ day.activeCalories ?? '—' }}</strong></div>
-        <div class="metric-card"><p>總熱量</p><strong>{{ day.totalCalories ?? '—' }}</strong></div>
-        <div class="metric-card"><p>體重</p><strong>{{ day.weightKg ?? '—' }}</strong><small>目標 {{ report.weightGoalKg ?? '未設定' }} kg</small></div>
+        <div class="metric-card"><p>總消耗熱量</p><strong>{{ numeric(day.totalCalories, ' kcal') }}</strong><small>包含基礎代謝與活動消耗</small></div>
+        <div class="metric-card"><p>活動距離</p><strong>{{ numeric(day.distanceKm, ' km') }}</strong></div>
+        <div class="metric-card"><p>體重</p><strong>{{ measured(day.weightKg, ' kg') }}</strong><small>目標 {{ report.weightGoalKg ?? '未設定' }} kg</small></div>
+        <div class="metric-card"><p>體脂率</p><strong>{{ measured(day.bodyFatPercentage, '%') }}</strong><small>以當日實際量測為準</small></div>
         <p class="data-rule">{{ day.synced ? '已同步' : '尚未同步' }} · 最後紀錄：{{ day.lastUpdatedAt ?? '無資料' }}</p>
       </div>
     </template>
