@@ -65,7 +65,7 @@ export class GoogleHealthProvider implements HealthProvider {
     // Each existing sync batch is one full Taipei day; keep the official 14-day limit.
     const civil = (date: string) => {
       const [year, month, day] = date.split('-').map(Number)
-      return { year, month, day, hours: 0, minutes: 0, seconds: 0 }
+      return { date: { year, month, day }, time: { hours: 0, minutes: 0, seconds: 0 } }
     }
     this.apiRequestCount += 1
     const response = await fetch(`${GOOGLE_HEALTH_API_BASE}/users/me/dataTypes/total-calories/dataPoints:dailyRollUp`, {
@@ -78,11 +78,11 @@ export class GoogleHealthProvider implements HealthProvider {
       throw new GoogleHealthApiError(response.status, errorBody.slice(0, 500) || response.statusText)
     }
     const body = (await response.json()) as {
-      rollupDataPoints?: Array<{ civilStartTime?: { year?: number; month?: number; day?: number }; totalCalories?: { kcalSum?: number } }>
+      rollupDataPoints?: Array<{ civilStartTime?: { date?: { year?: number; month?: number; day?: number } }; totalCalories?: { kcalSum?: number } }>
     }
     return (body.rollupDataPoints ?? []).flatMap((point) => {
       const value = point.totalCalories?.kcalSum
-      const day = point.civilStartTime
+      const day = point.civilStartTime?.date
       if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || !day?.year || !day.month || !day.day) return []
       const date = `${day.year}-${String(day.month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`
       const timestamp = new Date(`${date}T00:00:00+08:00`).toISOString()
