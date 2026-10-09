@@ -32,6 +32,8 @@ const fetchHandler = async (request: Request): Promise<Response> => {
       hasRecords: doc?.hasRecords ?? false,
       lastUpdatedAt: doc?.lastUpdatedAt ?? null,
       steps: doc?.summary.steps ?? null,
+      distanceKm: doc?.summary.distanceKm ?? null,
+      bodyFatPercentage: doc?.summary.bodyFatPercentage ?? null,
       activeMinutes: doc?.summary.activeMinutes ?? null,
       exerciseMinutes: doc?.summary.exerciseMinutes ?? null,
       weightKg: doc?.summary.weightKg ?? null,
