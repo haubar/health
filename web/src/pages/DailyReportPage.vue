@@ -9,7 +9,7 @@ const error = ref('')
 async function load() {
   try {
     report.value = await getJson<Report>('/.netlify/functions/daily-progress-export')
-    selectedDate.value = report.value.days.at(-1)?.date ?? ''
+    selectedDate.value = report.value.days[report.value.days.length - 1]?.date ?? ''
   } catch { error.value = '報表載入失敗' }
 }
 onMounted(load)
