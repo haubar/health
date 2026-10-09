@@ -10,7 +10,7 @@ const selectedDay = computed(() => report.value?.days.find(day => day.date === s
 const orderedDays = computed(() => [...(report.value?.days ?? [])].sort((a, b) => b.date.localeCompare(a.date)))
 const weekday = (date: string) => new Intl.DateTimeFormat('zh-TW', { weekday: 'short', timeZone: 'Asia/Taipei' }).format(new Date(date + 'T12:00:00+08:00'))
 const dayNumber = (date: string) => String(Number(date.slice(8, 10)))
-const dateLabel = (date: string) => date.replaceAll('-', '/')
+const dateLabel = (date: string) => date.replace(/-/g, '/')
 const selectRelative = (offset: number) => {
   const index = orderedDays.value.findIndex(day => day.date === selectedDate.value)
   const next = orderedDays.value[index + offset]
