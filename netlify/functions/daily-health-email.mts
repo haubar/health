@@ -30,7 +30,7 @@ export const handler = schedule('0 12 * * *', async () => {
   const date = healthDate(new Date())
   const deliveryStore = createBlobStore('health-email-delivery')
   const deliveryKey = `daily/${date}.json`
-  if (await deliveryStore.get(deliveryKey)) {
+  if (await deliveryStore.getJson(deliveryKey, 'strong')) {
     return { statusCode: 200, body: 'Already sent' }
   }
 
@@ -73,6 +73,6 @@ export const handler = schedule('0 12 * * *', async () => {
     console.error('Daily health email delivery failed', { status: response.status })
     return { statusCode: 502, body: 'Email delivery failed' }
   }
-  await deliveryStore.setJSON(deliveryKey, { sentAt: new Date().toISOString() })
+  await deliveryStore.setJson(deliveryKey, { sentAt: new Date().toISOString() })
   return { statusCode: 200, body: 'Email sent' }
 })
