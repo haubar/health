@@ -75,7 +75,6 @@ onMounted(() => { void load() })
         <div class="metric-card"><p>步數</p><strong>{{ day.steps ?? '—' }}</strong><small>目標 {{ report.stepGoal }} 步 · {{ day.steps === null ? '尚無資料' : Math.round(day.steps / report.stepGoal * 100) + '%' }} · {{ day.steps === null ? '無法計算剩餘步數' : '剩餘 ' + Math.max(0, report.stepGoal - day.steps) + ' 步' }}</small></div>
         <div class="metric-card"><p>總消耗熱量</p><strong>{{ numeric(day.totalCalories, ' kcal') }}</strong><small>包含基礎代謝與活動消耗</small></div>
         <div class="metric-card"><p>活動時間</p><strong>{{ numeric(day.activeMinutes, ' 分鐘') }}</strong><small>Google Health 活動分鐘數（各活動強度合計）</small></div>
-        <div class="metric-card"><p>運動時間</p><strong>{{ numeric(day.exerciseMinutes, ' 分鐘') }}</strong><small>來自運動紀錄的時段長度，與活動時間可能重疊</small></div>
         <div class="metric-card"><p>活動距離</p><strong>{{ numeric(day.distanceKm, ' km') }}</strong></div>
         <div class="metric-card"><p>體重</p><strong>{{ measured(day.weightKg, ' kg') }}</strong><small>目標 {{ report.weightGoalKg ?? '未設定' }} kg</small></div>
         <div class="metric-card"><p>體脂率</p><strong>{{ measured(day.bodyFatPercentage, '%') }}</strong><small>以當日實際量測為準</small></div>
