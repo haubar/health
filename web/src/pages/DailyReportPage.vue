@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getJson } from '../services/api'
+import { getJson, postJson } from '../services/api'
 type Day = { date: string; synced: boolean; lastUpdatedAt: string | null; steps: number | null; distanceKm: number | null; bodyFatPercentage: number | null; activeMinutes: number | null; exerciseMinutes: number | null; activeCalories: number | null; totalCalories: number | null; weightKg: number | null }
 type Report = { days: Day[]; stepGoal: number; weightGoalKg: number | null }
 const report = ref<Report | null>(null)
 const selectedDate = ref('')
 const error = ref('')
+const syncingDay = ref(false)
+const syncMessage = ref('')
 const selectedDay = computed(() => report.value?.days.find(day => day.date === selectedDate.value) ?? null)
 const orderedDays = computed(() => [...(report.value?.days ?? [])].sort((a, b) => b.date.localeCompare(a.date)))
 const weekday = (date: string) => new Intl.DateTimeFormat('zh-TW', { weekday: 'short', timeZone: 'Asia/Taipei' }).format(new Date(date + 'T12:00:00+08:00'))
@@ -19,19 +21,37 @@ const selectRelative = (offset: number) => {
   if (next) selectedDate.value = next.date
 }
 const selectedIndex = computed(() => orderedDays.value.findIndex(day => day.date === selectedDate.value))
-async function load() {
+async function load(preserveSelection = false) {
+  const previousDate = selectedDate.value
   try {
     report.value = await getJson<Report>('/.netlify/functions/daily-progress-export')
-    selectedDate.value = report.value.days[report.value.days.length - 1]?.date ?? ''
+    selectedDate.value = preserveSelection && report.value.days.some(day => day.date === previousDate)
+      ? previousDate : report.value.days[report.value.days.length - 1]?.date ?? ''
   } catch { error.value = '報表載入失敗' }
 }
-onMounted(load)
+async function forceSyncSelectedDay() {
+  if (!selectedDate.value || syncingDay.value) return
+  syncingDay.value = true
+  syncMessage.value = ''
+  try {
+    const result = await postJson<{ date: string; recordCount: number; synced: boolean }>('/.netlify/functions/sync-health', { batch: 0, forceDate: selectedDate.value })
+    await load(true)
+    syncMessage.value = `${result.date} 已重新同步，共取得 ${result.recordCount} 筆紀錄。`
+  } catch (cause) {
+    syncMessage.value = cause instanceof Error ? cause.message : '當日重新同步失敗。'
+  } finally {
+    syncingDay.value = false
+  }
+}
+onMounted(() => { void load() })
 </script>
 <template>
   <section class="page-stack">
-    <header class="page-header"><div><p class="eyebrow">DAILY REPORT</p><h1>每日健康報表</h1></div><button type="button" class="report-refresh" @click="load">↻ 重新整理</button></header>
+    <header class="page-header"><div><p class="eyebrow">DAILY REPORT</p><h1>每日健康報表</h1></div><button type="button" class="report-refresh" @click="load(true)">↻ 重新整理</button></header>
     <p class="data-rule">僅登入後可查看最近七天的健康紀錄。缺少的資料不會補成零。</p>
-    <p v-if="error">{{ error }}</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <div class="report-sync-controls"><button type="button" class="report-refresh" :disabled="syncingDay || !selectedDay" @click="forceSyncSelectedDay">{{ syncingDay ? "重新同步中…" : "↻ 重新同步所選日期" }}</button><span v-if="selectedDay">僅重新讀取 {{ dateLabel(selectedDay.date) }}，不論目前是否已有資料</span></div>
+    <p v-if="syncMessage" role="status">{{ syncMessage }}</p>
     <template v-if="report">
       <section class="report-date-section" aria-label="選擇報表日期">
         <div class="report-date-heading">
@@ -64,6 +84,8 @@ onMounted(load)
 </template>
 
 <style scoped>
+.report-sync-controls { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; color: #96aaa1; font-size: .8rem; }
+.report-refresh:disabled { opacity: .55; cursor: not-allowed; }
 .report-refresh { border: 1px solid #345448; border-radius: .7rem; background: #17372e; color: #dffdf1; padding: .65rem 1rem; cursor: pointer; font: inherit; font-size: .85rem; }
 .report-date-section { display: grid; gap: 1rem; padding: 1.2rem; border: 1px solid #2b403a; border-radius: 1.1rem; background: #101a1e; }
 .report-date-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
