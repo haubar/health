@@ -9,6 +9,12 @@ const protectedRoutes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/daily-report',
+    name: 'daily-report',
+    component: () => import('./pages/DailyReportPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./pages/SettingsPage.vue'),

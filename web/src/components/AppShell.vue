@@ -16,6 +16,7 @@ watch(() => auth.authenticated, async (authenticated) => {
 
 const visibleNavigation = computed(() => [
   { to: '/dashboard', label: '首頁' },
+  { to: '/daily-report', label: '每日報表' },
   ...(analysis.value?.insights.length ? [{ to: '/insights', label: '洞察' }] : []),
   ...(analysis.value?.timeline.length ? [{ to: '/timeline', label: '時間軸' }] : []),
   { to: '/settings', label: '設定' },
