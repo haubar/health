@@ -58,9 +58,9 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     const start = new Date(end)
     start.setUTCDate(start.getUTCDate() - BATCH_DAYS)
     const provider = new GoogleHealthProvider(user.id, decryptSecret(auth.encryptedRefreshToken, env.HEALTH_TOKEN_ENCRYPTION_KEY), env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
-    const [activity, weight, bodyFat, workouts] = await Promise.all([provider.getActivity({ start, end }), provider.getWeight({ start, end }), provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end })])
-    const records = [...activity, ...weight, ...bodyFat, ...workouts]
-    const recordCounts = { activity: activity.length, weight: weight.length, bodyFat: bodyFat.length, workouts: workouts.length }
+    const [activity, weight, bodyFat, workouts, totalCalories] = await Promise.all([provider.getActivity({ start, end }), provider.getWeight({ start, end }), provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end }), provider.getTotalCalories({ start, end })])
+    const records = [...activity, ...weight, ...bodyFat, ...workouts, ...totalCalories]
+    const recordCounts = { activity: activity.length, weight: weight.length, bodyFat: bodyFat.length, workouts: workouts.length, totalCalories: totalCalories.length }
     console.log('sync-health batch fetched', {
       batch,
       batchCount: BATCH_COUNT,

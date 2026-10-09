@@ -49,6 +49,50 @@ export class GoogleHealthProvider implements HealthProvider {
   getBodyFat(range: DateRange): Promise<HealthRecord[]> { return this.getType('body-fat', range) }
   getWorkouts(range: DateRange): Promise<HealthRecord[]> { return this.getType('exercise', range) }
   async getActivity(range: DateRange): Promise<HealthRecord[]> { return (await Promise.all(['steps', 'distance', 'active-minutes'].map((type) => this.getType(type, range)))).flat() }
+
+  /** Google Health derived total energy, aggregated per Asia/Taipei civil day. */
+  async getTotalCalories(range: DateRange): Promise<HealthRecord[]> {
+    const auth = await this.oauthClient.getAccessToken()
+    if (!auth.token) throw new Error('Google Health access token unavailable')
+    const civilDate = (instant: Date): string => new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(instant)
+    const startDay = civilDate(range.start)
+    const endDay = civilDate(new Date(range.end.getTime() - 1))
+    const exclusiveEndDay = new Date(`${endDay}T00:00:00Z`)
+    exclusiveEndDay.setUTCDate(exclusiveEndDay.getUTCDate() + 1)
+    const endExclusive = exclusiveEndDay.toISOString().slice(0, 10)
+    // Each existing sync batch is one full Taipei day; keep the official 14-day limit.
+    const civil = (date: string) => {
+      const [year, month, day] = date.split('-').map(Number)
+      return { date: { year, month, day }, time: { hours: 0, minutes: 0, seconds: 0 } }
+    }
+    this.apiRequestCount += 1
+    const response = await fetch(`${GOOGLE_HEALTH_API_BASE}/users/me/dataTypes/total-calories/dataPoints:dailyRollUp`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ range: { start: civil(startDay), end: civil(endExclusive) }, windowSizeDays: 1 }),
+    })
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new GoogleHealthApiError(response.status, errorBody.slice(0, 500) || response.statusText)
+    }
+    const body = (await response.json()) as {
+      rollupDataPoints?: Array<{ civilStartTime?: { date?: { year?: number; month?: number; day?: number } }; totalCalories?: { kcalSum?: number } }>
+    }
+    return (body.rollupDataPoints ?? []).flatMap((point) => {
+      const value = point.totalCalories?.kcalSum
+      const day = point.civilStartTime?.date
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || !day?.year || !day.month || !day.day) return []
+      const date = `${day.year}-${String(day.month).padStart(2, '0')}-${String(day.day).padStart(2, '0')}`
+      const timestamp = new Date(`${date}T00:00:00+08:00`).toISOString()
+      return [{
+        id: `total-calories-${date}`, userId: this.userId, provider: 'google_health' as const,
+        sourceRecordId: `total-calories-${date}`, type: 'total_calories' as const,
+        startTime: timestamp, value, unit: 'kcal', resolution: 'daily_rollup' as const,
+      }]
+    })
+  }
   private async getType(path: string, range: DateRange): Promise<HealthRecord[]> {
     const definition = DATA_TYPES.find((item) => item.path === path); if (!definition) throw new Error(`Unsupported Google Health data type: ${path}`)
     const auth = await this.oauthClient.getAccessToken(); if (!auth.token) throw new Error('Google Health access token unavailable')

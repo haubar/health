@@ -23,11 +23,12 @@ import { ScheduledSyncRepository } from '../../lib/repositories/scheduled-sync-r
 const BACKFILL_EMPTY_DAY_LIMIT = 90
 
 async function fetchRecords(provider: GoogleHealthProvider, start: Date, end: Date) {
-  const [activity, weight, bodyFat, workouts] = await Promise.all([
+  const [activity, weight, bodyFat, workouts, totalCalories] = await Promise.all([
     provider.getActivity({ start, end }), provider.getWeight({ start, end }),
     provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end }),
+    provider.getTotalCalories({ start, end }),
   ])
-  return [...activity, ...weight, ...bodyFat, ...workouts]
+  return [...activity, ...weight, ...bodyFat, ...workouts, ...totalCalories]
 }
 
 function retryDelayMs(error: unknown, attempt: number): number {
