@@ -12,7 +12,7 @@ import { SyncRepository } from '../lib/repositories/sync-repository'
 import { readSession } from '../lib/session'
 import { createNetlifyHandler } from '../lib/netlify-handler'
 
-const DEFAULT_LOOKBACK_DAYS = 30
+const DEFAULT_LOOKBACK_DAYS = 10
 const BATCH_DAYS = 1
 const BATCH_COUNT = DEFAULT_LOOKBACK_DAYS / BATCH_DAYS
 
@@ -41,22 +41,32 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     return jsonFailure(409, 'sync_batch_out_of_order', '同步批次已失效，請重新開始同步。')
   }
   const startedAt = batch === 0 ? new Date().toISOString() : previousState!.lastStartedAt!
-  const legacyNextEndTime = previousState?.lastCompletedAt && previousState.lastStartedAt
-    ? new Date(Date.parse(previousState.lastStartedAt) - BATCH_COUNT * BATCH_DAYS * 24 * 60 * 60 * 1000).toISOString()
-    : null
-  const cursorEndTime = previousState?.nextEndTime ?? previousState?.runEndTime ?? legacyNextEndTime
+  // Every click starts at the latest Taipei day; skip days already synced,
+  // and move backwards until ten previously unsynced days have been filled.
   const runEndTime = batch === 0
-    ? cursorEndTime ? floorToHealthDay(new Date(cursorEndTime)).toISOString() : nextHealthDayStart(new Date(startedAt)).toISOString()
-    : previousState!.runEndTime ?? startedAt
-  const nextEndTime = batch === 0 ? previousState?.nextEndTime ?? legacyNextEndTime : previousState!.nextEndTime ?? null
+    ? nextHealthDayStart(new Date(startedAt)).toISOString()
+    : previousState!.runEndTime!
+  const nextEndTime = batch === 0 ? runEndTime : previousState!.nextEndTime!
   const previousCount = batch === 0 ? 0 : previousState!.recordCount
   await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime, lastCompletedAt: null, status: 'running', recordCount: previousCount, errorCode: null })
 
   try {
-    const end = new Date(Date.parse(runEndTime))
-    end.setUTCDate(end.getUTCDate() - batch * BATCH_DAYS)
-    const start = new Date(end)
-    start.setUTCDate(start.getUTCDate() - BATCH_DAYS)
+    const summaryRepository = new DashboardSummaryRepository()
+    // Cursor is persisted after every batch so existing dates are skipped without
+    // consuming one of the ten requested backfill slots.
+    let end = new Date(nextEndTime)
+    let start = new Date(end)
+    let existing = null
+    let scanned = 0
+    do {
+      start = new Date(end)
+      start.setUTCDate(start.getUTCDate() - BATCH_DAYS)
+      existing = await summaryRepository.get(user.id, healthDate(start))
+      scanned++
+      if (!existing?.synced) break
+      end = start
+    } while (scanned < 730)
+    if (existing?.synced) throw new Error('sync_history_limit_reached')
     const provider = new GoogleHealthProvider(user.id, decryptSecret(auth.encryptedRefreshToken, env.HEALTH_TOKEN_ENCRYPTION_KEY), env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
     const [activity, weight, bodyFat, workouts, totalCalories] = await Promise.all([provider.getActivity({ start, end }), provider.getWeight({ start, end }), provider.getBodyFat({ start, end }), provider.getWorkouts({ start, end }), provider.getTotalCalories({ start, end })])
     const records = [...activity, ...weight, ...bodyFat, ...workouts, ...totalCalories]
@@ -77,7 +87,6 @@ const fetchHandler = async (request: Request): Promise<Response> => {
       endTime: end.toISOString(),
       ...writeResult,
     })
-    const summaryRepository = new DashboardSummaryRepository()
     const summaryDate = healthDate(start)
     const summary = aggregateDailyHealthRecords(records).find((item) => item.date === summaryDate)
     let latestRecordTime = Number.NEGATIVE_INFINITY
@@ -91,7 +100,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     const totalRecordCount = previousCount + records.length
     const done = batch === BATCH_COUNT - 1
     const completedAt = done ? new Date().toISOString() : null
-    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime: done ? start.toISOString() : nextEndTime, lastCompletedAt: completedAt, status: done ? 'idle' : 'running', recordCount: totalRecordCount, errorCode: null })
+    await syncRepository.set(user.id, { userId: user.id, lastStartedAt: startedAt, runEndTime, nextEndTime: start.toISOString(), lastCompletedAt: completedAt, status: done ? 'idle' : 'running', recordCount: totalRecordCount, errorCode: null })
     return jsonSuccess({ batch, batchCount: BATCH_COUNT, runStartedAt: startedAt, runEndTime, startTime: start.toISOString(), endTime: end.toISOString(), lastCompletedAt: completedAt, recordCount: records.length, totalRecordCount, done, recordCounts })
   } catch (error) {
     const errorCode = error instanceof Error ? error.constructor.name : 'sync_failed'
