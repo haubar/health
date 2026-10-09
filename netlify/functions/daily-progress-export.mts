@@ -1,4 +1,5 @@
 import type { Config } from '@netlify/functions'
+import { assessDailyProgress } from '../lib/daily-progress'
 import { getServerEnvironment } from '../lib/env'
 import { healthDate, shiftHealthDate } from '../lib/health-day'
 import { createNetlifyHandler } from '../lib/netlify-handler'
@@ -44,6 +45,7 @@ const fetchHandler = async (request: Request): Promise<Response> => {
     stepGoal: settings?.dailyStepGoal ?? 8000,
     weightGoalKg: settings?.weightGoalKg ?? null,
     days,
+    assessment: assessDailyProgress(days, settings?.dailyStepGoal ?? 8000, settings?.weightGoalKg ?? null),
   })
 }
 
