@@ -24,13 +24,22 @@ const fetchHandler = async (request: Request): Promise<Response> => {
   const auth = await new AuthRepository().get(user.id)
   if (!auth || auth.status !== 'connected') return jsonFailure(409, 'health_not_connected', '尚未連結 Google Health。')
 
-  let payload: { batch?: unknown; runStartedAt?: unknown; forceDate?: unknown }
-  try {
-    payload = await request.json() as { batch?: unknown; runStartedAt?: unknown; forceDate?: unknown }
-  } catch {
-    return jsonFailure(400, 'invalid_sync_batch', '同步批次參數無效。')
+  // An empty POST starts a new sync. Keep malformed JSON and invalid explicit
+  // batch values as errors rather than silently starting a different run.
+  let payload: { batch?: unknown; runStartedAt?: unknown; forceDate?: unknown } = {}
+  const rawBody = await request.text()
+  if (rawBody.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(rawBody)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return jsonFailure(400, 'invalid_sync_payload', '同步參數必須是 JSON 物件。')
+      }
+      payload = parsed as typeof payload
+    } catch {
+      return jsonFailure(400, 'invalid_sync_payload', '同步參數不是有效的 JSON。')
+    }
   }
-  const batch = payload.batch
+  const batch = payload.batch === undefined ? 0 : payload.batch
   if (typeof batch !== 'number' || !Number.isInteger(batch) || batch < 0 || batch >= BATCH_COUNT) {
     return jsonFailure(400, 'invalid_sync_batch', '同步批次參數無效。')
   }
