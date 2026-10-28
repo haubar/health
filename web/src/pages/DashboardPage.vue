@@ -55,6 +55,38 @@ function shiftMonth(offset: number): void {
 }
 const hasActivity = computed(() => data.value.summaries.some((day) => day.steps !== null || day.distanceKm !== null || day.activeMinutes !== null || day.exerciseMinutes !== null))
 const stepPoints = computed(() => data.value.summaries.flatMap((day) => day.steps === null ? [] : [{ label: day.date, value: day.steps }]))
+type AveragePeriod = 'week' | 'month'
+type ActivityMetric = 'steps' | 'totalCalories' | 'activeMinutes'
+const averagePeriod = ref<AveragePeriod>('week')
+const averageMetrics = [
+  { key: 'steps', label: '平均步數', unit: '步' },
+  { key: 'totalCalories', label: '平均總消耗熱量', unit: 'kcal' },
+  { key: 'activeMinutes', label: '平均活動分鐘數', unit: '分鐘' },
+] as const
+function averageGroupKey(date: string, grouping: AveragePeriod): string {
+  if (grouping === 'month') return date.slice(0, 7)
+  const monday = new Date(`${date}T00:00:00Z`)
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7))
+  return monday.toISOString().slice(0, 10)
+}
+function averagePoints(metric: ActivityMetric, grouping: AveragePeriod): { label: string; value: number }[] {
+  const buckets = new Map<string, { sum: number; count: number }>()
+  for (const day of data.value.summaries) {
+    const value = day[metric]
+    if (value === null || !Number.isFinite(value)) continue
+    const key = averageGroupKey(day.date, grouping)
+    const bucket = buckets.get(key) ?? { sum: 0, count: 0 }
+    bucket.sum += value
+    bucket.count++
+    buckets.set(key, bucket)
+  }
+  return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, bucket]) => ({
+    label, value: Math.round(bucket.sum / bucket.count * 10) / 10,
+  }))
+}
+const averageCharts = computed(() => averageMetrics.map(metric => ({
+  ...metric, points: averagePoints(metric.key, averagePeriod.value),
+})))
 const weightPoints = computed(() => analysis.value.weightLoss.points.map((point) => ({ label: point.date, value: point.weightKg })))
 const goalDistanceText = computed(() => {
   const amount = analysis.value.weightLoss.kgToGoal
@@ -175,6 +207,23 @@ const nextStep = computed(() => {
       <div class="dashboard-grid">
         <TrendChart v-if="hasActivity" :title="`${periodLabel}步數趨勢`" :range="period === '1Y' ? '1Y' : period === '90D' ? '90D' : '30D'" :points="stepPoints" unit="步" />
       </div>
+      <section class="activity-averages">
+        <header class="activity-coaching-heading">
+          <div><p class="eyebrow">ACTIVITY AVERAGES</p><h2>活動平均趨勢</h2></div>
+          <div class="range-selector" role="group" aria-label="平均統計週期">
+            <button type="button" :class="{ active: averagePeriod === 'week' }" :aria-pressed="averagePeriod === 'week'" @click="averagePeriod = 'week'">每週平均</button>
+            <button type="button" :class="{ active: averagePeriod === 'month' }" :aria-pressed="averagePeriod === 'month'" @click="averagePeriod = 'month'">每月平均</button>
+          </div>
+        </header>
+        <p class="data-rule">依目前選取的活動資料區間計算；每週從週一開始，只計有該指標紀錄的日期。本週、本月及區間邊界可能為部分資料。</p>
+        <div class="dashboard-grid">
+          <TrendChart v-for="metric in averageCharts" :key="`${averagePeriod}-${metric.key}`"
+            :title="`${averagePeriod === 'week' ? '每週' : '每月'}${metric.label}`"
+            :range="period === '1Y' ? '1Y' : period === '90D' ? '90D' : '30D'"
+            :points="metric.points" :unit="metric.unit" kind="bar" />
+        </div>
+        <p v-if="averageCharts.every(metric => metric.points.length === 0)" class="data-rule">此區間尚無可用的活動平均資料。</p>
+      </section>
       <HealthStateCard v-if="data.availability === 'empty' && !hasActivity && analysis.weightLoss.latestKg === null" state="empty" title="這段期間還沒有同步資料" description="完成 Google Health 連線與同步後，有實際資料的區塊才會出現。" />
     </template>
 
